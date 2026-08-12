@@ -1,11 +1,12 @@
-import React, { useState, useRef } from "react";
-import { Trash2, Plus, ArrowLeft } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Trash2, Plus, ArrowLeft, Check } from "lucide-react";
+import { supabase } from "./supabaseClient.js";
 import {
-  MOCK_VENDORS,
   COLORS,
   fmt,
   num,
   computePrice,
+  fetchVendors,
   labelStyle,
   inputStyle,
   pageStyle,
@@ -32,13 +33,30 @@ function makeRow(id, defaults) {
 
 // initialRows (optional): raw extracted rows from the photo scan, shape:
 // { height, length, width, qty, has_acrylic, color }
-export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
-  const [batchVendor, setBatchVendor] = useState(initialVendor || MOCK_VENDORS[0]);
+// initialVendor: vendor id (uuid) chosen on the capture screen
+export default function VerifyGrid({
+  initialRows,
+  initialVendor,
+  onBack,
+  onSaved,
+}) {
+  const [vendors, setVendors] = useState([]);
+  const [batchVendor, setBatchVendor] = useState(initialVendor || "");
   const [batchDate, setBatchDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10),
   );
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [saveError, setSaveError] = useState("");
   const nextId = useRef(0);
   const lastRates = useRef({ rate: 2.5, acrylicRate: 0.6 });
+
+  useEffect(() => {
+    fetchVendors().then((vs) => {
+      setVendors(vs);
+      if (!batchVendor && vs.length > 0) setBatchVendor(vs[0].id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [rows, setRows] = useState(() => {
     if (initialRows && initialRows.length > 0) {
@@ -51,7 +69,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
           qty: r.qty,
           hasAcrylic: !!r.has_acrylic,
           color: r.color || "Blue",
-          vendor: initialVendor || MOCK_VENDORS[0],
+          vendor: initialVendor || "",
           rate: lastRates.current.rate,
           acrylicRate: lastRates.current.acrylicRate,
         });
@@ -60,7 +78,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
     const id = nextId.current++;
     return [
       makeRow(id, {
-        vendor: initialVendor || MOCK_VENDORS[0],
+        vendor: initialVendor || "",
         rate: 2.5,
         acrylicRate: 0.6,
       }),
@@ -86,6 +104,56 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
     setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.id !== id) : rs));
   };
 
+  async function handleSave() {
+    if (!batchVendor) {
+      setSaveError("Pick a vendor for this batch first.");
+      setSaveState("error");
+      return;
+    }
+    setSaveState("saving");
+    setSaveError("");
+    try {
+      const { data: batch, error: batchErr } = await supabase
+        .from("batches")
+        .insert({ vendor_id: batchVendor, batch_date: batchDate })
+        .select("id")
+        .single();
+      if (batchErr) throw batchErr;
+
+      const itemsPayload = rows.map((r) => {
+        const price = computePrice(r);
+        return {
+          batch_id: batch.id,
+          vendor_id: r.vendor || batchVendor,
+          height: num(r.height),
+          length: num(r.length),
+          width: num(r.width),
+          qty: num(r.qty),
+          has_acrylic: r.hasAcrylic,
+          color: r.color,
+          rate: num(r.rate),
+          acrylic_rate: r.hasAcrylic ? num(r.acrylicRate) : null,
+          unit_price: price.unit,
+          total_price: price.total,
+        };
+      });
+
+      const { error: itemsErr } = await supabase
+        .from("box_items")
+        .insert(itemsPayload);
+      if (itemsErr) throw itemsErr;
+
+      setSaveState("saved");
+      if (onSaved) setTimeout(() => onSaved(), 900);
+    } catch (err) {
+      console.error(err);
+      setSaveState("error");
+      setSaveError(
+        err.message || "Couldn't save. Check your connection and try again.",
+      );
+    }
+  }
+
   const totals = rows.reduce(
     (acc, r) => {
       const p = computePrice(r);
@@ -93,7 +161,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
       acc.amount += p.total;
       return acc;
     },
-    { boxes: 0, amount: 0 }
+    { boxes: 0, amount: 0 },
   );
 
   return (
@@ -165,7 +233,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
               <SelectField
                 value={batchVendor}
                 onChange={(v) => setBatchVendor(v)}
-                options={MOCK_VENDORS}
+                options={vendors.map((v) => ({ value: v.id, label: v.name }))}
               />
             </div>
             <div style={{ width: 140 }}>
@@ -187,7 +255,10 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
         {rows.map((row, idx) => {
           const price = computePrice(row);
           return (
-            <div key={row.id} style={{ ...cardStyle, padding: "14px 16px 12px" }}>
+            <div
+              key={row.id}
+              style={{ ...cardStyle, padding: "14px 16px 12px" }}
+            >
               <div
                 style={{
                   display: "flex",
@@ -276,7 +347,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
                     height: 40,
                   }}
                 >
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    Acrylic
+                  </span>
                   <Toggle
                     checked={row.hasAcrylic}
                     onChange={(v) => updateRow(row.id, { hasAcrylic: v })}
@@ -297,7 +370,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
                 <SelectField
                   value={row.vendor}
                   onChange={(v) => updateRow(row.id, { vendor: v })}
-                  options={MOCK_VENDORS}
+                  options={vendors.map((v) => ({ value: v.id, label: v.name }))}
                 />
               </div>
 
@@ -328,7 +401,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
                 <span style={{ fontSize: 11.5, color: "#6B5A45" }}>
                   {fmt(price.unit)} &times; {num(row.qty)}
                 </span>
-                <span style={{ fontSize: 20, fontWeight: 600, color: "#8E2C22" }}>
+                <span
+                  style={{ fontSize: 20, fontWeight: 600, color: "#8E2C22" }}
+                >
                   {fmt(price.total)}
                 </span>
               </div>
@@ -377,30 +452,67 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack }) {
       >
         <div>
           <div style={{ fontSize: 11, color: "#C7A574", letterSpacing: 1 }}>
-            {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot; {batchVendor}
+            {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
+            {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 600 }}>
+          <div
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 22,
+              fontWeight: 600,
+            }}
+          >
             {fmt(totals.amount)}
           </div>
         </div>
         <button
           style={{
-            background: "#B23A2E",
+            background: saveState === "saved" ? "#4C6B4C" : "#B23A2E",
             color: "#fff",
             border: "none",
             borderRadius: 8,
             padding: "12px 22px",
             fontWeight: 700,
             fontSize: 14,
-            cursor: "pointer",
+            cursor: saveState === "saving" ? "default" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            opacity: saveState === "saving" ? 0.7 : 1,
           }}
-          onClick={() =>
-            alert("Saving to Supabase comes in step 4 — this button is wired up next.")
-          }
+          disabled={saveState === "saving"}
+          onClick={handleSave}
         >
-          Save batch
+          {saveState === "saving" && "Saving…"}
+          {saveState === "saved" && (
+            <>
+              <Check size={16} /> Saved
+            </>
+          )}
+          {(saveState === "idle" || saveState === "error") && "Save batch"}
         </button>
       </div>
+
+      {saveState === "error" && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 70,
+            left: 12,
+            right: 12,
+            maxWidth: 436,
+            margin: "0 auto",
+            background: "#F6EEDF",
+            border: "1.5px solid #B23A2E",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "#2B2118",
+          }}
+        >
+          {saveError}
+        </div>
+      )}
     </div>
   );
 }

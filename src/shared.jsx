@@ -1,8 +1,32 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
+import { supabase } from "./supabaseClient.js";
 
-export const MOCK_VENDORS = ["Sharma Packaging", "Patel Boxes", "Mehta Traders"];
 export const COLORS = ["Blue", "Maroon", "Red"];
+
+export async function fetchVendors() {
+  const { data, error } = await supabase
+    .from("vendors")
+    .select("id, name")
+    .order("name");
+  if (error) throw error;
+  return data;
+}
+
+export async function createVendor(name) {
+  const { data, error } = await supabase
+    .from("vendors")
+    .insert({ name: name.trim() })
+    .select("id, name")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteVendor(id) {
+  const { error } = await supabase.from("vendors").delete().eq("id", id);
+  if (error) throw error;
+}
 
 export const fmt = (n) => "₹" + (isNaN(n) ? 0 : n).toFixed(2);
 export const num = (v) => {
@@ -11,7 +35,9 @@ export const num = (v) => {
 };
 
 export function computePrice(row) {
-  const h = num(row.height), l = num(row.length), w = num(row.width);
+  const h = num(row.height),
+    l = num(row.length),
+    w = num(row.width);
   const rate = num(row.rate);
   const acrylicRate = num(row.acrylicRate);
   const boxPrice = (h + w) * (l + w) * rate;
@@ -61,7 +87,12 @@ export const cardStyle = {
 
 export function NumField({ label, value, onChange, disabled }) {
   return (
-    <div style={{ opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? "none" : "auto" }}>
+    <div
+      style={{
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
       <label style={labelStyle}>{label}</label>
       <input
         type="number"
@@ -75,10 +106,13 @@ export function NumField({ label, value, onChange, disabled }) {
 }
 
 export function SelectField({ value, onChange, options }) {
+  const normalized = options.map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o,
+  );
   return (
     <div style={{ position: "relative" }}>
       <select
-        value={value}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         style={{
           ...inputStyle,
@@ -88,9 +122,10 @@ export function SelectField({ value, onChange, options }) {
           cursor: "pointer",
         }}
       >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
+        {normalized.length === 0 && <option value="">No options yet</option>}
+        {normalized.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
           </option>
         ))}
       </select>
@@ -111,7 +146,14 @@ export function SelectField({ value, onChange, options }) {
 
 export function Toggle({ checked, onChange }) {
   return (
-    <label style={{ position: "relative", width: 40, height: 22, display: "inline-block" }}>
+    <label
+      style={{
+        position: "relative",
+        width: 40,
+        height: 22,
+        display: "inline-block",
+      }}
+    >
       <input
         type="checkbox"
         checked={checked}
