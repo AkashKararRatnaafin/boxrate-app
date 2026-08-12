@@ -1,7 +1,19 @@
-import React, { useRef, useState } from "react";
-import { Camera, Image as ImageIcon, ArrowRight, AlertCircle } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Camera,
+  Image as ImageIcon,
+  ArrowRight,
+  AlertCircle,
+  Store,
+} from "lucide-react";
 import { supabase } from "./supabaseClient.js";
-import { MOCK_VENDORS, labelStyle, pageStyle, cardStyle, SelectField } from "./shared.jsx";
+import {
+  fetchVendors,
+  labelStyle,
+  pageStyle,
+  cardStyle,
+  SelectField,
+} from "./shared.jsx";
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -17,14 +29,26 @@ function fileToBase64(file) {
   });
 }
 
-// onExtracted(rows, vendor) — rows are raw extraction objects, or null to skip straight to manual entry
-export default function CapturePhoto({ onExtracted }) {
-  const [vendor, setVendor] = useState(MOCK_VENDORS[0]);
+// onExtracted(rows, vendorId) — rows are raw extraction objects, or null to skip straight to manual entry
+export default function CapturePhoto({ onExtracted, onManageVendors }) {
+  const [vendors, setVendors] = useState([]);
+  const [vendorsLoading, setVendorsLoading] = useState(true);
+  const [vendor, setVendor] = useState("");
   const [status, setStatus] = useState("idle"); // idle | loading | error
   const [errorMsg, setErrorMsg] = useState("");
   const [previewUrl, setPreviewUrl] = useState(null);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
+
+  useEffect(() => {
+    fetchVendors()
+      .then((vs) => {
+        setVendors(vs);
+        if (vs.length > 0) setVendor(vs[0].id);
+      })
+      .catch((err) => setErrorMsg("Couldn't load vendors: " + err.message))
+      .finally(() => setVendorsLoading(false));
+  }, []);
 
   async function handleFile(file) {
     if (!file) return;
@@ -52,7 +76,7 @@ export default function CapturePhoto({ onExtracted }) {
       setErrorMsg(
         err.message === "No boxes were found in that photo."
           ? err.message
-          : "Couldn't read that photo. Try a clearer, well-lit shot, or enter the boxes manually."
+          : "Couldn't read that photo. Try a clearer, well-lit shot, or enter the boxes manually.",
       );
     }
   }
@@ -87,7 +111,56 @@ export default function CapturePhoto({ onExtracted }) {
 
         <div style={cardStyle}>
           <label style={labelStyle}>Vendor for this batch</label>
-          <SelectField value={vendor} onChange={setVendor} options={MOCK_VENDORS} />
+          {vendorsLoading ? (
+            <div style={{ fontSize: 13, color: "#6B5A45" }}>
+              Loading vendors…
+            </div>
+          ) : vendors.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#6B5A45" }}>
+              No vendors yet.{" "}
+              <button
+                onClick={onManageVendors}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#B23A2E",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: 0,
+                  textDecoration: "underline",
+                }}
+              >
+                Add one first
+              </button>
+              .
+            </div>
+          ) : (
+            <>
+              <SelectField
+                value={vendor}
+                onChange={setVendor}
+                options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+              />
+              <button
+                onClick={onManageVendors}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#6B5A45",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: 0,
+                  marginTop: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Store size={12} /> Manage vendors
+              </button>
+            </>
+          )}
         </div>
 
         {previewUrl && (
@@ -123,7 +196,11 @@ export default function CapturePhoto({ onExtracted }) {
               border: "1.5px solid #B23A2E",
             }}
           >
-            <AlertCircle size={18} color="#B23A2E" style={{ flexShrink: 0, marginTop: 2 }} />
+            <AlertCircle
+              size={18}
+              color="#B23A2E"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
             <div style={{ fontSize: 13, color: "#2B2118" }}>{errorMsg}</div>
           </div>
         )}
@@ -148,21 +225,24 @@ export default function CapturePhoto({ onExtracted }) {
 
             <button
               onClick={() => cameraInputRef.current?.click()}
-              style={primaryBtn}
+              disabled={!vendor}
+              style={{ ...primaryBtn, opacity: vendor ? 1 : 0.5 }}
             >
               <Camera size={19} /> Take photo
             </button>
 
             <button
               onClick={() => galleryInputRef.current?.click()}
-              style={secondaryBtn}
+              disabled={!vendor}
+              style={{ ...secondaryBtn, opacity: vendor ? 1 : 0.5 }}
             >
               <ImageIcon size={17} /> Choose from gallery
             </button>
 
             <button
               onClick={() => onExtracted(null, vendor)}
-              style={textBtn}
+              disabled={!vendor}
+              style={{ ...textBtn, opacity: vendor ? 1 : 0.5 }}
             >
               Skip — enter boxes manually <ArrowRight size={14} />
             </button>
