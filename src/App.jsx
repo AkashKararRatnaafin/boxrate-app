@@ -4,10 +4,12 @@ import CapturePhoto from "./CapturePhoto.jsx";
 import VerifyGrid from "./VerifyGrid.jsx";
 import VendorManager from "./VendorManager.jsx";
 import Dashboard from "./Dashboard.jsx";
+import BatchDetail from "./BatchDetail.jsx";
 
 export default function App() {
-  const [screen, setScreen] = useState("capture"); // "capture" | "verify" | "vendors" | "dashboard"
+  const [screen, setScreen] = useState("capture"); // capture | verify | vendors | dashboard | batchDetail
   const [extraction, setExtraction] = useState({ rows: null, vendor: null });
+  const [openBatchId, setOpenBatchId] = useState(null);
 
   function handleExtracted(rows, vendor) {
     setExtraction({ rows, vendor });
@@ -17,8 +19,23 @@ export default function App() {
   let body;
   if (screen === "vendors") {
     body = <VendorManager onBack={() => setScreen("capture")} />;
+  } else if (screen === "batchDetail") {
+    body = (
+      <BatchDetail
+        batchId={openBatchId}
+        onBack={() => setScreen("dashboard")}
+      />
+    );
   } else if (screen === "dashboard") {
-    body = <Dashboard onBack={() => setScreen("capture")} />;
+    body = (
+      <Dashboard
+        onBack={() => setScreen("capture")}
+        onOpenBatch={(id) => {
+          setOpenBatchId(id);
+          setScreen("batchDetail");
+        }}
+      />
+    );
   } else if (screen === "verify") {
     body = (
       <VerifyGrid
@@ -40,8 +57,8 @@ export default function App() {
     );
   }
 
-  // Verify grid has its own full-screen flow (with a sticky save bar) — keep nav out of its way.
-  const showNav = screen !== "verify";
+  // Verify grid and batch detail have their own full-screen flows — keep nav out of the way.
+  const showNav = screen !== "verify" && screen !== "batchDetail";
 
   return (
     <>
@@ -86,11 +103,14 @@ function NavBtn({ icon, label, active, onClick }) {
         gap: 3,
         padding: "10px 0 8px",
         cursor: "pointer",
-        color: active ? "#B23A2E" : "#8A7A61",
+        color: active ? "#FF5B4A" : "rgba(255,255,255,0.55)",
+        transition: "color 0.15s",
       }}
     >
       {icon}
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5 }}>
+        {label}
+      </span>
     </button>
   );
 }
@@ -100,9 +120,10 @@ const navStyle = {
   bottom: 0,
   left: 0,
   right: 0,
-  background: "#F6EEDF",
-  borderTop: "1px solid rgba(43,33,24,0.18)",
+  background: "rgba(28,28,30,0.55)",
+  backdropFilter: "blur(24px) saturate(160%)",
+  WebkitBackdropFilter: "blur(24px) saturate(160%)",
+  borderTop: "1px solid rgba(255,255,255,0.14)",
   display: "flex",
-  boxShadow: "0 -4px 14px rgba(43,33,24,0.12)",
   paddingBottom: "env(safe-area-inset-bottom)",
 };

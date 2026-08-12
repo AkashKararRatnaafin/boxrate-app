@@ -14,7 +14,14 @@ import {
   NumField,
   SelectField,
   Toggle,
+  COLORS_UI,
 } from "./shared.jsx";
+
+function vendorRate(vendors, vendorId, fallback) {
+  const v = vendors.find((v) => v.id === vendorId);
+  if (v && v.default_rate !== null && v.default_rate !== undefined) return v.default_rate;
+  return fallback;
+}
 
 function makeRow(id, defaults) {
   return {
@@ -80,6 +87,20 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     ];
   });
 
+  // Once vendors load, if a batch vendor has a default rate, apply it to any
+  // rows that are still sitting on the generic fallback rate.
+  useEffect(() => {
+    if (vendors.length === 0 || !batchVendor) return;
+    const v = vendors.find((v) => v.id === batchVendor);
+    if (v && v.default_rate !== null && v.default_rate !== undefined) {
+      lastRates.current.rate = v.default_rate;
+      setRows((rs) =>
+        rs.map((r) => (!r.vendor ? { ...r, vendor: batchVendor, rate: v.default_rate } : r))
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendors, batchVendor]);
+
   const updateRow = (id, patch) => {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     if (patch.rate !== undefined) lastRates.current.rate = patch.rate;
@@ -87,11 +108,19 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       lastRates.current.acrylicRate = patch.acrylicRate;
   };
 
+  // Changing a row's own vendor is a deliberate override — snap the rate to
+  // that vendor's default (if it has one) so the "pick vendor, rate follows" flow works per-row too.
+  const changeRowVendor = (id, vendorId) => {
+    const rate = vendorRate(vendors, vendorId, lastRates.current.rate);
+    updateRow(id, { vendor: vendorId, rate });
+  };
+
   const addRow = () => {
     const id = nextId.current++;
+    const rate = vendorRate(vendors, batchVendor, lastRates.current.rate);
     setRows((rs) => [
       ...rs,
-      makeRow(id, { vendor: batchVendor, ...lastRates.current }),
+      makeRow(id, { vendor: batchVendor, rate, acrylicRate: lastRates.current.acrylicRate }),
     ]);
   };
 
@@ -158,66 +187,18 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
   return (
     <div style={{ ...pageStyle, paddingBottom: 100 }}>
       <div style={{ maxWidth: 460, margin: "0 auto" }}>
-        {/* Header */}
         <div style={{ padding: "10px 6px 18px" }}>
           {onBack && (
-            <button
-              onClick={onBack}
-              style={{
-                background: "none",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                color: "#6B5A45",
-                fontSize: 12,
-                fontWeight: 600,
-                padding: 0,
-                marginBottom: 8,
-                cursor: "pointer",
-              }}
-            >
+            <button onClick={onBack} style={backBtn}>
               <ArrowLeft size={14} /> back
             </button>
           )}
-          <h1
-            style={{
-              fontFamily: "'Special Elite', monospace",
-              fontSize: 26,
-              margin: "0 0 2px",
-              letterSpacing: 1,
-            }}
-          >
-            Verify Boxes
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              letterSpacing: 2,
-              textTransform: "uppercase",
-              color: "#6B5A45",
-              fontWeight: 600,
-            }}
-          >
-            check the numbers, then save
-          </p>
+          <h1 style={titleStyle}>Verify Boxes</h1>
+          <p style={subtitleStyle}>check the numbers, then save</p>
         </div>
 
-        {/* Batch info card */}
         <div style={cardStyle}>
-          <div
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 11,
-              letterSpacing: 1.5,
-              textTransform: "uppercase",
-              color: "#6B5A45",
-              marginBottom: 10,
-            }}
-          >
-            This batch
-          </div>
+          <div style={sectionLabel}>This batch</div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Vendor</label>
@@ -237,16 +218,15 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
               />
             </div>
           </div>
-          <div style={{ fontSize: 11, color: "#6B5A45", marginTop: 8 }}>
+          <div style={{ fontSize: 11, color: COLORS_UI.inkSoft, marginTop: 8 }}>
             Applies to new boxes below — override per box if needed.
           </div>
         </div>
 
-        {/* Box rows */}
         {rows.map((row, idx) => {
           const price = computePrice(row);
           return (
-            <div key={row.id} style={{ ...cardStyle, padding: "14px 16px 12px" }}>
+            <div key={row.id} style={cardStyle}>
               <div
                 style={{
                   display: "flex",
@@ -259,8 +239,8 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                   style={{
                     fontFamily: "'DM Mono', monospace",
                     fontSize: 12,
-                    fontWeight: 600,
-                    color: "#8E2C22",
+                    fontWeight: 700,
+                    color: COLORS_UI.accentDark,
                     letterSpacing: 1,
                   }}
                 >
@@ -272,7 +252,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                   style={{
                     background: "none",
                     border: "none",
-                    color: rows.length === 1 ? "#C9BBA0" : "#B23A2E",
+                    color: rows.length === 1 ? "rgba(28,28,30,0.25)" : COLORS_UI.accent,
                     cursor: rows.length === 1 ? "default" : "pointer",
                     padding: 4,
                     display: "flex",
@@ -328,11 +308,12 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    background: "#EFE3CB",
-                    border: "1.5px solid rgba(43,33,24,0.18)",
-                    borderRadius: 7,
-                    padding: "8px 10px",
-                    height: 40,
+                    background: "rgba(255,255,255,0.35)",
+                    border: "1px solid rgba(28,28,30,0.12)",
+                    borderRadius: 12,
+                    padding: "9px 11px",
+                    height: 41,
+                    boxSizing: "border-box",
                   }}
                 >
                   <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
@@ -355,7 +336,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                 <label style={labelStyle}>Vendor</label>
                 <SelectField
                   value={row.vendor}
-                  onChange={(v) => updateRow(row.id, { vendor: v })}
+                  onChange={(v) => changeRowVendor(row.id, v)}
                   options={vendors.map((v) => ({ value: v.id, label: v.name }))}
                 />
               </div>
@@ -376,7 +357,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
 
               <div
                 style={{
-                  borderTop: "1px dashed rgba(43,33,24,0.18)",
+                  borderTop: "1px dashed rgba(28,28,30,0.15)",
                   paddingTop: 8,
                   display: "flex",
                   justifyContent: "space-between",
@@ -384,10 +365,10 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                   fontFamily: "'DM Mono', monospace",
                 }}
               >
-                <span style={{ fontSize: 11.5, color: "#6B5A45" }}>
+                <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
                   {fmt(price.unit)} &times; {num(row.qty)}
                 </span>
-                <span style={{ fontSize: 20, fontWeight: 600, color: "#8E2C22" }}>
+                <span style={{ fontSize: 20, fontWeight: 700, color: COLORS_UI.accentDark }}>
                   {fmt(price.total)}
                 </span>
               </div>
@@ -399,12 +380,12 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
           onClick={addRow}
           style={{
             width: "100%",
-            padding: "12px",
-            borderRadius: 10,
-            border: "1.5px dashed rgba(43,33,24,0.35)",
-            background: "transparent",
-            color: "#2B2118",
-            fontWeight: 600,
+            padding: "13px",
+            borderRadius: 16,
+            border: "1.5px dashed rgba(255,255,255,0.65)",
+            background: "rgba(255,255,255,0.18)",
+            color: "#fff",
+            fontWeight: 700,
             fontSize: 14,
             display: "flex",
             alignItems: "center",
@@ -418,37 +399,26 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
         </button>
       </div>
 
-      {/* Sticky total bar */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "#2B2118",
-          color: "#F6EEDF",
-          padding: "12px 18px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          boxShadow: "0 -4px 14px rgba(0,0,0,0.25)",
-        }}
-      >
+      {/* Sticky glass total bar */}
+      <div style={stickyBar}>
         <div>
-          <div style={{ fontSize: 11, color: "#C7A574", letterSpacing: 1 }}>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", letterSpacing: 1 }}>
             {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
             {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 600 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>
             {fmt(totals.amount)}
           </div>
         </div>
         <button
           style={{
-            background: saveState === "saved" ? "#4C6B4C" : "#B23A2E",
+            background:
+              saveState === "saved"
+                ? "linear-gradient(135deg, #30B858, #23924A)"
+                : "linear-gradient(135deg, #FF5B4A, #E8394F)",
             color: "#fff",
             border: "none",
-            borderRadius: 8,
+            borderRadius: 14,
             padding: "12px 22px",
             fontWeight: 700,
             fontSize: 14,
@@ -457,6 +427,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
             alignItems: "center",
             gap: 6,
             opacity: saveState === "saving" ? 0.7 : 1,
+            boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
           }}
           disabled={saveState === "saving"}
           onClick={handleSave}
@@ -475,17 +446,18 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
         <div
           style={{
             position: "fixed",
-            bottom: 70,
+            bottom: 78,
             left: 12,
             right: 12,
             maxWidth: 436,
             margin: "0 auto",
-            background: "#F6EEDF",
-            border: "1.5px solid #B23A2E",
-            borderRadius: 8,
+            background: "rgba(255,255,255,0.9)",
+            backdropFilter: "blur(16px)",
+            border: `1.5px solid ${COLORS_UI.accent}`,
+            borderRadius: 12,
             padding: "10px 14px",
             fontSize: 12.5,
-            color: "#2B2118",
+            color: COLORS_UI.ink,
           }}
         >
           {saveError}
@@ -494,3 +466,59 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     </div>
   );
 }
+
+const titleStyle = {
+  fontFamily: "'Special Elite', monospace",
+  fontSize: 27,
+  margin: "0 0 2px",
+  letterSpacing: 1,
+  color: "#fff",
+  textShadow: "0 2px 12px rgba(0,0,0,0.15)",
+};
+
+const subtitleStyle = {
+  margin: 0,
+  fontSize: 12,
+  letterSpacing: 2,
+  textTransform: "uppercase",
+  color: "rgba(255,255,255,0.85)",
+  fontWeight: 600,
+};
+
+const backBtn = {
+  background: "none",
+  border: "none",
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 12,
+  fontWeight: 700,
+  padding: 0,
+  marginBottom: 8,
+  cursor: "pointer",
+};
+
+const sectionLabel = {
+  fontFamily: "'DM Mono', monospace",
+  fontSize: 11,
+  letterSpacing: 1.5,
+  textTransform: "uppercase",
+  color: COLORS_UI.inkSoft,
+  marginBottom: 10,
+};
+
+const stickyBar = {
+  position: "fixed",
+  bottom: 0,
+  left: 0,
+  right: 0,
+  background: "rgba(28,28,30,0.6)",
+  backdropFilter: "blur(24px) saturate(160%)",
+  WebkitBackdropFilter: "blur(24px) saturate(160%)",
+  borderTop: "1px solid rgba(255,255,255,0.14)",
+  padding: "12px 18px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
