@@ -1,13 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Camera, Image as ImageIcon, ArrowRight, AlertCircle, Store } from "lucide-react";
 import { supabase } from "./supabaseClient.js";
-import { fetchVendors, labelStyle, pageStyle, cardStyle, SelectField } from "./shared.jsx";
+import {
+  fetchVendors,
+  labelStyle,
+  pageStyle,
+  cardStyle,
+  SelectField,
+  primaryBtn,
+  secondaryBtn,
+  COLORS_UI,
+} from "./shared.jsx";
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      // strip the "data:image/jpeg;base64," prefix
       const result = reader.result;
       const base64 = result.substring(result.indexOf(",") + 1);
       resolve(base64);
@@ -51,8 +59,6 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
       });
 
       if (error) {
-        // supabase-js doesn't surface our function's own error text via error.message —
-        // it's in the raw response body, which we have to read ourselves.
         let detail = error.message;
         try {
           if (error.context?.json) {
@@ -74,8 +80,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
     } catch (err) {
       console.error(err);
       setStatus("error");
-      const known =
-        err.message === "No boxes were found in that photo.";
+      const known = err.message === "No boxes were found in that photo.";
       setErrorMsg(
         known
           ? err.message
@@ -88,49 +93,18 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
     <div style={pageStyle}>
       <div style={{ maxWidth: 460, margin: "0 auto" }}>
         <div style={{ padding: "10px 6px 18px" }}>
-          <h1
-            style={{
-              fontFamily: "'Special Elite', monospace",
-              fontSize: 26,
-              margin: "0 0 2px",
-              letterSpacing: 1,
-            }}
-          >
-            BoxRate
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              letterSpacing: 2,
-              textTransform: "uppercase",
-              color: "#6B5A45",
-              fontWeight: 600,
-            }}
-          >
-            scan a measurement sheet
-          </p>
+          <h1 style={titleStyle}>BoxRate</h1>
+          <p style={subtitleStyle}>scan a measurement sheet</p>
         </div>
 
         <div style={cardStyle}>
           <label style={labelStyle}>Vendor for this batch</label>
           {vendorsLoading ? (
-            <div style={{ fontSize: 13, color: "#6B5A45" }}>Loading vendors…</div>
+            <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>Loading vendors…</div>
           ) : vendors.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#6B5A45" }}>
+            <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
               No vendors yet.{" "}
-              <button
-                onClick={onManageVendors}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#B23A2E",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  padding: 0,
-                  textDecoration: "underline",
-                }}
-              >
+              <button onClick={onManageVendors} style={linkBtn}>
                 Add one first
               </button>
               .
@@ -142,22 +116,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
                 onChange={setVendor}
                 options={vendors.map((v) => ({ value: v.id, label: v.name }))}
               />
-              <button
-                onClick={onManageVendors}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#6B5A45",
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  padding: 0,
-                  marginTop: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
+              <button onClick={onManageVendors} style={manageLink}>
                 <Store size={12} /> Manage vendors
               </button>
             </>
@@ -165,25 +124,78 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         </div>
 
         {previewUrl && (
-          <div style={{ ...cardStyle, padding: 8 }}>
+          <div style={{ ...cardStyle, padding: 8, position: "relative", overflow: "hidden" }}>
             <img
               src={previewUrl}
               alt="Selected sheet"
-              style={{ width: "100%", borderRadius: 6, display: "block" }}
+              style={{ width: "100%", borderRadius: 14, display: "block" }}
             />
+            {status === "loading" && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 8,
+                  right: 8,
+                  top: 8,
+                  bottom: 8,
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  pointerEvents: "none",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    background:
+                      "linear-gradient(90deg, transparent, #FF5B4A 20%, #fff 50%, #FF5B4A 80%, transparent)",
+                    boxShadow: "0 0 16px 3px rgba(255,91,74,0.8)",
+                    animation: "scanSweep 1.8s ease-in-out infinite",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.15))",
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {status === "loading" && (
-          <div
-            style={{
-              ...cardStyle,
-              textAlign: "center",
-              fontFamily: "'DM Mono', monospace",
-              color: "#6B5A45",
-            }}
-          >
-            Reading the sheet…
+          <div style={{ ...cardStyle, textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                fontSize: 13,
+                color: COLORS_UI.ink,
+                fontWeight: 600,
+                marginBottom: 8,
+              }}
+            >
+              Reading the sheet
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 5 }}>
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: COLORS_UI.accent,
+                    display: "inline-block",
+                    animation: `pulseDot 1.1s ease-in-out ${i * 0.15}s infinite`,
+                  }}
+                />
+              ))}
+            </div>
           </div>
         )}
 
@@ -194,11 +206,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
               display: "flex",
               gap: 10,
               alignItems: "flex-start",
-              border: "1.5px solid #B23A2E",
+              border: `1.5px solid ${COLORS_UI.accent}`,
             }}
           >
-            <AlertCircle size={18} color="#B23A2E" style={{ flexShrink: 0, marginTop: 2 }} />
-            <div style={{ fontSize: 13, color: "#2B2118" }}>{errorMsg}</div>
+            <AlertCircle size={18} color={COLORS_UI.accent} style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ fontSize: 13, color: COLORS_UI.ink }}>{errorMsg}</div>
           </div>
         )}
 
@@ -223,7 +235,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
             <button
               onClick={() => cameraInputRef.current?.click()}
               disabled={!vendor}
-              style={{ ...primaryBtn, opacity: vendor ? 1 : 0.5 }}
+              style={{ ...primaryBtn, opacity: vendor ? 1 : 0.5, marginBottom: 10 }}
             >
               <Camera size={19} /> Take photo
             </button>
@@ -231,7 +243,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
             <button
               onClick={() => galleryInputRef.current?.click()}
               disabled={!vendor}
-              style={{ ...secondaryBtn, opacity: vendor ? 1 : 0.5 }}
+              style={{ ...secondaryBtn, opacity: vendor ? 1 : 0.5, marginBottom: 14 }}
             >
               <ImageIcon size={17} /> Choose from gallery
             </button>
@@ -250,39 +262,46 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
   );
 }
 
-const primaryBtn = {
-  width: "100%",
-  padding: "16px",
-  borderRadius: 10,
-  border: "none",
-  background: "#B23A2E",
+const titleStyle = {
+  fontFamily: "'Special Elite', monospace",
+  fontSize: 28,
+  margin: "0 0 2px",
+  letterSpacing: 1,
   color: "#fff",
-  fontWeight: 700,
-  fontSize: 15,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  cursor: "pointer",
-  marginBottom: 10,
-  boxShadow: "0 6px 14px rgba(43,33,24,0.18)",
+  textShadow: "0 2px 12px rgba(0,0,0,0.15)",
 };
 
-const secondaryBtn = {
-  width: "100%",
-  padding: "14px",
-  borderRadius: 10,
-  border: "1.5px solid rgba(43,33,24,0.25)",
-  background: "#F6EEDF",
-  color: "#2B2118",
+const subtitleStyle = {
+  margin: 0,
+  fontSize: 12,
+  letterSpacing: 2,
+  textTransform: "uppercase",
+  color: "rgba(255,255,255,0.85)",
   fontWeight: 600,
-  fontSize: 14,
+};
+
+const linkBtn = {
+  background: "none",
+  border: "none",
+  color: COLORS_UI.accent,
+  fontWeight: 700,
+  cursor: "pointer",
+  padding: 0,
+  textDecoration: "underline",
+};
+
+const manageLink = {
+  background: "none",
+  border: "none",
+  color: COLORS_UI.inkSoft,
+  fontSize: 11.5,
+  fontWeight: 600,
+  cursor: "pointer",
+  padding: 0,
+  marginTop: 8,
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  cursor: "pointer",
-  marginBottom: 14,
+  gap: 4,
 };
 
 const textBtn = {
@@ -290,8 +309,8 @@ const textBtn = {
   padding: "10px",
   border: "none",
   background: "transparent",
-  color: "#6B5A45",
-  fontWeight: 600,
+  color: "rgba(255,255,255,0.9)",
+  fontWeight: 700,
   fontSize: 13,
   display: "flex",
   alignItems: "center",
