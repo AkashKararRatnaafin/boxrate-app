@@ -34,16 +34,11 @@ function makeRow(id, defaults) {
 // initialRows (optional): raw extracted rows from the photo scan, shape:
 // { height, length, width, qty, has_acrylic, color }
 // initialVendor: vendor id (uuid) chosen on the capture screen
-export default function VerifyGrid({
-  initialRows,
-  initialVendor,
-  onBack,
-  onSaved,
-}) {
+export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved }) {
   const [vendors, setVendors] = useState([]);
   const [batchVendor, setBatchVendor] = useState(initialVendor || "");
   const [batchDate, setBatchDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    new Date().toISOString().slice(0, 10)
   );
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [saveError, setSaveError] = useState("");
@@ -138,9 +133,7 @@ export default function VerifyGrid({
         };
       });
 
-      const { error: itemsErr } = await supabase
-        .from("box_items")
-        .insert(itemsPayload);
+      const { error: itemsErr } = await supabase.from("box_items").insert(itemsPayload);
       if (itemsErr) throw itemsErr;
 
       setSaveState("saved");
@@ -148,9 +141,7 @@ export default function VerifyGrid({
     } catch (err) {
       console.error(err);
       setSaveState("error");
-      setSaveError(
-        err.message || "Couldn't save. Check your connection and try again.",
-      );
+      setSaveError(err.message || "Couldn't save. Check your connection and try again.");
     }
   }
 
@@ -161,7 +152,7 @@ export default function VerifyGrid({
       acc.amount += p.total;
       return acc;
     },
-    { boxes: 0, amount: 0 },
+    { boxes: 0, amount: 0 }
   );
 
   return (
@@ -255,10 +246,7 @@ export default function VerifyGrid({
         {rows.map((row, idx) => {
           const price = computePrice(row);
           return (
-            <div
-              key={row.id}
-              style={{ ...cardStyle, padding: "14px 16px 12px" }}
-            >
+            <div key={row.id} style={{ ...cardStyle, padding: "14px 16px 12px" }}>
               <div
                 style={{
                   display: "flex",
@@ -347,9 +335,7 @@ export default function VerifyGrid({
                     height: 40,
                   }}
                 >
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>
-                    Acrylic
-                  </span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
                   <Toggle
                     checked={row.hasAcrylic}
                     onChange={(v) => updateRow(row.id, { hasAcrylic: v })}
@@ -401,9 +387,7 @@ export default function VerifyGrid({
                 <span style={{ fontSize: 11.5, color: "#6B5A45" }}>
                   {fmt(price.unit)} &times; {num(row.qty)}
                 </span>
-                <span
-                  style={{ fontSize: 20, fontWeight: 600, color: "#8E2C22" }}
-                >
+                <span style={{ fontSize: 20, fontWeight: 600, color: "#8E2C22" }}>
                   {fmt(price.total)}
                 </span>
               </div>
@@ -455,13 +439,7 @@ export default function VerifyGrid({
             {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
             {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
           </div>
-          <div
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 22,
-              fontWeight: 600,
-            }}
-          >
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 600 }}>
             {fmt(totals.amount)}
           </div>
         </div>

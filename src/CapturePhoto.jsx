@@ -1,19 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Camera,
-  Image as ImageIcon,
-  ArrowRight,
-  AlertCircle,
-  Store,
-} from "lucide-react";
+import { Camera, Image as ImageIcon, ArrowRight, AlertCircle, Store } from "lucide-react";
 import { supabase } from "./supabaseClient.js";
-import {
-  fetchVendors,
-  labelStyle,
-  pageStyle,
-  cardStyle,
-  SelectField,
-} from "./shared.jsx";
+import { fetchVendors, labelStyle, pageStyle, cardStyle, SelectField } from "./shared.jsx";
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -62,7 +50,20 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         body: { imageBase64: base64, mimeType: file.type || "image/jpeg" },
       });
 
-      if (error) throw error;
+      if (error) {
+        // supabase-js doesn't surface our function's own error text via error.message —
+        // it's in the raw response body, which we have to read ourselves.
+        let detail = error.message;
+        try {
+          if (error.context?.json) {
+            const body = await error.context.json();
+            detail = body?.error || detail;
+          }
+        } catch {
+          /* ignore parse failure, fall back to error.message */
+        }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(data.error);
       if (!data?.rows || data.rows.length === 0) {
         throw new Error("No boxes were found in that photo.");
@@ -73,10 +74,12 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
     } catch (err) {
       console.error(err);
       setStatus("error");
+      const known =
+        err.message === "No boxes were found in that photo.";
       setErrorMsg(
-        err.message === "No boxes were found in that photo."
+        known
           ? err.message
-          : "Couldn't read that photo. Try a clearer, well-lit shot, or enter the boxes manually.",
+          : `Couldn't read that photo (${err.message || "unknown error"}). Try a clearer, well-lit shot, or enter the boxes manually.`
       );
     }
   }
@@ -112,9 +115,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         <div style={cardStyle}>
           <label style={labelStyle}>Vendor for this batch</label>
           {vendorsLoading ? (
-            <div style={{ fontSize: 13, color: "#6B5A45" }}>
-              Loading vendors…
-            </div>
+            <div style={{ fontSize: 13, color: "#6B5A45" }}>Loading vendors…</div>
           ) : vendors.length === 0 ? (
             <div style={{ fontSize: 13, color: "#6B5A45" }}>
               No vendors yet.{" "}
@@ -196,11 +197,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
               border: "1.5px solid #B23A2E",
             }}
           >
-            <AlertCircle
-              size={18}
-              color="#B23A2E"
-              style={{ flexShrink: 0, marginTop: 2 }}
-            />
+            <AlertCircle size={18} color="#B23A2E" style={{ flexShrink: 0, marginTop: 2 }} />
             <div style={{ fontSize: 13, color: "#2B2118" }}>{errorMsg}</div>
           </div>
         )}
