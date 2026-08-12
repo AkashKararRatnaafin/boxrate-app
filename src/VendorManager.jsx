@@ -1,13 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Trash2, Plus, ArrowLeft, Store } from "lucide-react";
-import {
-  fetchVendors,
-  createVendor,
-  deleteVendor,
-  pageStyle,
-  cardStyle,
-  inputStyle,
-} from "./shared.jsx";
+import { fetchVendors, createVendor, deleteVendor, pageStyle, cardStyle, inputStyle } from "./shared.jsx";
 
 export default function VendorManager({ onBack }) {
   const [vendors, setVendors] = useState([]);
@@ -38,15 +31,13 @@ export default function VendorManager({ onBack }) {
     setError("");
     try {
       const v = await createVendor(name);
-      setVendors((vs) =>
-        [...vs, v].sort((a, b) => a.name.localeCompare(b.name)),
-      );
+      setVendors((vs) => [...vs, v].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName("");
     } catch (err) {
       setError(
         err.message?.includes("duplicate")
           ? "That vendor already exists."
-          : "Couldn't add vendor: " + err.message,
+          : "Couldn't add vendor: " + err.message
       );
     } finally {
       setSaving(false);
@@ -84,24 +75,14 @@ export default function VendorManager({ onBack }) {
               placeholder="New vendor name"
               style={{ ...inputStyle, flex: 1 }}
             />
-            <button
-              onClick={handleAdd}
-              disabled={saving || !newName.trim()}
-              style={addBtn}
-            >
+            <button onClick={handleAdd} disabled={saving || !newName.trim()} style={addBtn}>
               <Plus size={18} />
             </button>
           </div>
         </div>
 
         {error && (
-          <div
-            style={{
-              ...cardStyle,
-              border: "1.5px solid #B23A2E",
-              fontSize: 13,
-            }}
-          >
+          <div style={{ ...cardStyle, border: "1.5px solid #B23A2E", fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -130,12 +111,7 @@ export default function VendorManager({ onBack }) {
               <span style={{ fontWeight: 600, fontSize: 14.5 }}>{v.name}</span>
               <button
                 onClick={() => handleDelete(v.id)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#B23A2E",
-                  cursor: "pointer",
-                }}
+                style={{ background: "none", border: "none", color: "#B23A2E", cursor: "pointer" }}
                 aria-label={`Delete ${v.name}`}
               >
                 <Trash2 size={17} />
