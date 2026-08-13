@@ -97,18 +97,23 @@ export default function VerifyGrid({
     ];
   });
 
-  // Once vendors load, if a batch vendor has a default rate, apply it to any
-  // rows that are still sitting on the generic fallback rate.
+  // Vendors load asynchronously, but rows (from a photo scan or manual add)
+  // can already exist by the time they arrive — apply the vendor's default
+  // rate to those rows once, the first moment vendors are available.
+  const appliedInitialRate = useRef(false);
   useEffect(() => {
-    if (vendors.length === 0 || !batchVendor) return;
+    if (vendors.length === 0 || appliedInitialRate.current) return;
+    appliedInitialRate.current = true;
+    setRows((rs) =>
+      rs.map((r) => {
+        const targetVendor = r.vendor || batchVendor;
+        const rate = vendorRate(vendors, targetVendor, r.rate);
+        return { ...r, vendor: r.vendor || batchVendor, rate };
+      }),
+    );
     const v = vendors.find((v) => v.id === batchVendor);
     if (v && v.default_rate !== null && v.default_rate !== undefined) {
       lastRates.current.rate = v.default_rate;
-      setRows((rs) =>
-        rs.map((r) =>
-          !r.vendor ? { ...r, vendor: batchVendor, rate: v.default_rate } : r,
-        ),
-      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors, batchVendor]);
