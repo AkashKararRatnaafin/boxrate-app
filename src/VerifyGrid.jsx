@@ -15,11 +15,16 @@ import {
   SelectField,
   Toggle,
   COLORS_UI,
+  titleStyle,
+  subtitleStyle,
+  backBtnStyle,
+  sectionLabelStyle,
 } from "./shared.jsx";
 
 function vendorRate(vendors, vendorId, fallback) {
   const v = vendors.find((v) => v.id === vendorId);
-  if (v && v.default_rate !== null && v.default_rate !== undefined) return v.default_rate;
+  if (v && v.default_rate !== null && v.default_rate !== undefined)
+    return v.default_rate;
   return fallback;
 }
 
@@ -41,11 +46,16 @@ function makeRow(id, defaults) {
 // initialRows (optional): raw extracted rows from the photo scan, shape:
 // { height, length, width, qty, has_acrylic, color }
 // initialVendor: vendor id (uuid) chosen on the capture screen
-export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved }) {
+export default function VerifyGrid({
+  initialRows,
+  initialVendor,
+  onBack,
+  onSaved,
+}) {
   const [vendors, setVendors] = useState([]);
   const [batchVendor, setBatchVendor] = useState(initialVendor || "");
   const [batchDate, setBatchDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10),
   );
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [saveError, setSaveError] = useState("");
@@ -95,7 +105,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     if (v && v.default_rate !== null && v.default_rate !== undefined) {
       lastRates.current.rate = v.default_rate;
       setRows((rs) =>
-        rs.map((r) => (!r.vendor ? { ...r, vendor: batchVendor, rate: v.default_rate } : r))
+        rs.map((r) =>
+          !r.vendor ? { ...r, vendor: batchVendor, rate: v.default_rate } : r,
+        ),
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +132,11 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     const rate = vendorRate(vendors, batchVendor, lastRates.current.rate);
     setRows((rs) => [
       ...rs,
-      makeRow(id, { vendor: batchVendor, rate, acrylicRate: lastRates.current.acrylicRate }),
+      makeRow(id, {
+        vendor: batchVendor,
+        rate,
+        acrylicRate: lastRates.current.acrylicRate,
+      }),
     ]);
   };
 
@@ -162,7 +178,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
         };
       });
 
-      const { error: itemsErr } = await supabase.from("box_items").insert(itemsPayload);
+      const { error: itemsErr } = await supabase
+        .from("box_items")
+        .insert(itemsPayload);
       if (itemsErr) throw itemsErr;
 
       setSaveState("saved");
@@ -170,7 +188,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     } catch (err) {
       console.error(err);
       setSaveState("error");
-      setSaveError(err.message || "Couldn't save. Check your connection and try again.");
+      setSaveError(
+        err.message || "Couldn't save. Check your connection and try again.",
+      );
     }
   }
 
@@ -181,7 +201,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       acc.amount += p.total;
       return acc;
     },
-    { boxes: 0, amount: 0 }
+    { boxes: 0, amount: 0 },
   );
 
   return (
@@ -189,7 +209,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       <div style={{ maxWidth: 460, margin: "0 auto" }}>
         <div style={{ padding: "10px 6px 18px" }}>
           {onBack && (
-            <button onClick={onBack} style={backBtn}>
+            <button onClick={onBack} style={backBtnStyle}>
               <ArrowLeft size={14} /> back
             </button>
           )}
@@ -198,7 +218,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
         </div>
 
         <div style={cardStyle}>
-          <div style={sectionLabel}>This batch</div>
+          <div style={sectionLabelStyle}>This batch</div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Vendor</label>
@@ -252,7 +272,10 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                   style={{
                     background: "none",
                     border: "none",
-                    color: rows.length === 1 ? "rgba(28,28,30,0.25)" : COLORS_UI.accent,
+                    color:
+                      rows.length === 1
+                        ? "rgba(28,28,30,0.25)"
+                        : COLORS_UI.accent,
                     cursor: rows.length === 1 ? "default" : "pointer",
                     padding: 4,
                     display: "flex",
@@ -316,7 +339,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                     boxSizing: "border-box",
                   }}
                 >
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    Acrylic
+                  </span>
                   <Toggle
                     checked={row.hasAcrylic}
                     onChange={(v) => updateRow(row.id, { hasAcrylic: v })}
@@ -368,7 +393,13 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                 <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
                   {fmt(price.unit)} &times; {num(row.qty)}
                 </span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: COLORS_UI.accentDark }}>
+                <span
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: COLORS_UI.accentDark,
+                  }}
+                >
                   {fmt(price.total)}
                 </span>
               </div>
@@ -402,20 +433,31 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       {/* Sticky glass total bar */}
       <div style={stickyBar}>
         <div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", letterSpacing: 1 }}>
+          <div
+            style={{
+              fontSize: 11,
+              color: "rgba(255,255,255,0.75)",
+              letterSpacing: 1,
+            }}
+          >
             {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
             {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>
+          <div
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#fff",
+            }}
+          >
             {fmt(totals.amount)}
           </div>
         </div>
         <button
           style={{
             background:
-              saveState === "saved"
-                ? "linear-gradient(135deg, #30B858, #23924A)"
-                : "linear-gradient(135deg, #FF5B4A, #E8394F)",
+              saveState === "saved" ? "var(--ok-grad)" : "var(--accent-grad)",
             color: "#fff",
             border: "none",
             borderRadius: 14,
@@ -466,47 +508,6 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     </div>
   );
 }
-
-const titleStyle = {
-  fontFamily: "'Special Elite', monospace",
-  fontSize: 27,
-  margin: "0 0 2px",
-  letterSpacing: 1,
-  color: "#fff",
-  textShadow: "0 2px 12px rgba(0,0,0,0.15)",
-};
-
-const subtitleStyle = {
-  margin: 0,
-  fontSize: 12,
-  letterSpacing: 2,
-  textTransform: "uppercase",
-  color: "rgba(255,255,255,0.85)",
-  fontWeight: 600,
-};
-
-const backBtn = {
-  background: "none",
-  border: "none",
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-  color: "rgba(255,255,255,0.9)",
-  fontSize: 12,
-  fontWeight: 700,
-  padding: 0,
-  marginBottom: 8,
-  cursor: "pointer",
-};
-
-const sectionLabel = {
-  fontFamily: "'DM Mono', monospace",
-  fontSize: 11,
-  letterSpacing: 1.5,
-  textTransform: "uppercase",
-  color: COLORS_UI.inkSoft,
-  marginBottom: 10,
-};
 
 const stickyBar = {
   position: "fixed",

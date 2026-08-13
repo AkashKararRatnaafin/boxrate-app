@@ -1,7 +1,26 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { ArrowLeft, Package, TrendingUp, Calendar, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft,
+  Package,
+  TrendingUp,
+  Calendar,
+  ChevronRight,
+} from "lucide-react";
 import { supabase } from "./supabaseClient.js";
-import { fmt, fetchVendors, pageStyle, cardStyle, inputStyle, labelStyle, SelectField, COLORS_UI } from "./shared.jsx";
+import {
+  fmt,
+  fetchVendors,
+  pageStyle,
+  cardStyle,
+  inputStyle,
+  labelStyle,
+  SelectField,
+  COLORS_UI,
+  titleStyle,
+  subtitleStyle,
+  backBtnStyle,
+  sectionLabelStyle,
+} from "./shared.jsx";
 
 export default function Dashboard({ onBack, onOpenBatch }) {
   const [vendors, setVendors] = useState([]);
@@ -19,8 +38,14 @@ export default function Dashboard({ onBack, onOpenBatch }) {
     try {
       const [vs, summaryRes, batchesRes] = await Promise.all([
         fetchVendors(),
-        supabase.from("vendor_sales_summary").select("*").order("total_sales", { ascending: false }),
-        supabase.from("batch_summary").select("*").order("batch_date", { ascending: false }),
+        supabase
+          .from("vendor_sales_summary")
+          .select("*")
+          .order("total_sales", { ascending: false }),
+        supabase
+          .from("batch_summary")
+          .select("*")
+          .order("batch_date", { ascending: false }),
       ]);
       if (summaryRes.error) throw summaryRes.error;
       if (batchesRes.error) throw batchesRes.error;
@@ -53,7 +78,7 @@ export default function Dashboard({ onBack, onOpenBatch }) {
       acc.amount += Number(b.total_price) || 0;
       return acc;
     },
-    { boxes: 0, amount: 0 }
+    { boxes: 0, amount: 0 },
   );
 
   return (
@@ -61,7 +86,7 @@ export default function Dashboard({ onBack, onOpenBatch }) {
       <div style={{ maxWidth: 460, margin: "0 auto" }}>
         <div style={{ padding: "10px 6px 18px" }}>
           {onBack && (
-            <button onClick={onBack} style={backBtn}>
+            <button onClick={onBack} style={backBtnStyle}>
               <ArrowLeft size={14} /> back
             </button>
           )}
@@ -70,23 +95,37 @@ export default function Dashboard({ onBack, onOpenBatch }) {
         </div>
 
         {error && (
-          <div style={{ ...cardStyle, border: `1.5px solid ${COLORS_UI.accent}`, fontSize: 13 }}>
+          <div
+            style={{
+              ...cardStyle,
+              border: `1.5px solid ${COLORS_UI.accent}`,
+              fontSize: 13,
+            }}
+          >
             {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ ...cardStyle, textAlign: "center", color: COLORS_UI.inkSoft }}>
+          <div
+            style={{
+              ...cardStyle,
+              textAlign: "center",
+              color: COLORS_UI.inkSoft,
+            }}
+          >
             Loading…
           </div>
         ) : (
           <>
             <div style={cardStyle}>
-              <div style={sectionLabel}>
+              <div style={sectionLabelStyle}>
                 <TrendingUp size={13} /> Totals by vendor
               </div>
               {vendorSummary.length === 0 ? (
-                <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>No sales yet.</div>
+                <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
+                  No sales yet.
+                </div>
               ) : (
                 vendorSummary.map((v) => (
                   <div
@@ -100,10 +139,12 @@ export default function Dashboard({ onBack, onOpenBatch }) {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{v.vendor_name}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        {v.vendor_name}
+                      </div>
                       <div style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
-                        {v.order_count} order{v.order_count === 1 ? "" : "s"} &middot;{" "}
-                        {v.total_boxes} boxes
+                        {v.order_count} order{v.order_count === 1 ? "" : "s"}{" "}
+                        &middot; {v.total_boxes} boxes
                       </div>
                     </div>
                     <div
@@ -122,7 +163,7 @@ export default function Dashboard({ onBack, onOpenBatch }) {
             </div>
 
             <div style={cardStyle}>
-              <div style={sectionLabel}>
+              <div style={sectionLabelStyle}>
                 <Calendar size={13} /> Filter orders
               </div>
               <div style={{ marginBottom: 10 }}>
@@ -159,10 +200,17 @@ export default function Dashboard({ onBack, onOpenBatch }) {
             </div>
 
             <div style={cardStyle}>
-              <div style={sectionLabel}>
+              <div style={sectionLabelStyle}>
                 <Package size={13} /> Order history
               </div>
-              <div style={{ fontSize: 11, color: COLORS_UI.inkSoft, marginTop: -6, marginBottom: 8 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: COLORS_UI.inkSoft,
+                  marginTop: -6,
+                  marginBottom: 8,
+                }}
+              >
                 Tap an order to see every box in it.
               </div>
               {filteredBatches.length === 0 ? (
@@ -189,14 +237,26 @@ export default function Dashboard({ onBack, onOpenBatch }) {
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 13.5, color: COLORS_UI.ink }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 13.5,
+                            color: COLORS_UI.ink,
+                          }}
+                        >
                           {b.vendor_name || "Unknown vendor"}
                         </div>
                         <div style={{ fontSize: 11, color: COLORS_UI.inkSoft }}>
                           {b.batch_date} &middot; {b.box_count} boxes
                         </div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
                         <div
                           style={{
                             fontFamily: "'DM Mono', monospace",
@@ -236,47 +296,3 @@ export default function Dashboard({ onBack, onOpenBatch }) {
     </div>
   );
 }
-
-const titleStyle = {
-  fontFamily: "'Special Elite', monospace",
-  fontSize: 27,
-  margin: "0 0 2px",
-  letterSpacing: 1,
-  color: "#fff",
-  textShadow: "0 2px 12px rgba(0,0,0,0.15)",
-};
-
-const subtitleStyle = {
-  margin: 0,
-  fontSize: 12,
-  letterSpacing: 2,
-  textTransform: "uppercase",
-  color: "rgba(255,255,255,0.85)",
-  fontWeight: 600,
-};
-
-const backBtn = {
-  background: "none",
-  border: "none",
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-  color: "rgba(255,255,255,0.9)",
-  fontSize: 12,
-  fontWeight: 700,
-  padding: 0,
-  marginBottom: 8,
-  cursor: "pointer",
-};
-
-const sectionLabel = {
-  fontFamily: "'DM Mono', monospace",
-  fontSize: 11,
-  letterSpacing: 1.5,
-  textTransform: "uppercase",
-  color: COLORS_UI.inkSoft,
-  marginBottom: 10,
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
