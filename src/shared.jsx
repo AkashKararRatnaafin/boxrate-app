@@ -46,9 +46,7 @@ export const num = (v) => {
 };
 
 export function computePrice(row) {
-  const h = num(row.height),
-    l = num(row.length),
-    w = num(row.width);
+  const h = num(row.height), l = num(row.length), w = num(row.width);
   const rate = num(row.rate);
   const acrylicRate = num(row.acrylicRate);
   const boxPrice = (h + w) * (l + w) * rate;
@@ -157,14 +155,24 @@ export const inputStyle = {
   outline: "none",
 };
 
+export function TextField({ label, value, onChange, placeholder }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <input
+        type="text"
+        value={value || ""}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      />
+    </div>
+  );
+}
+
 export function NumField({ label, value, onChange, disabled }) {
   return (
-    <div
-      style={{
-        opacity: disabled ? 0.4 : 1,
-        pointerEvents: disabled ? "none" : "auto",
-      }}
-    >
+    <div style={{ opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? "none" : "auto" }}>
       <label style={labelStyle}>{label}</label>
       <input
         type="number"
@@ -179,7 +187,7 @@ export function NumField({ label, value, onChange, disabled }) {
 
 export function SelectField({ value, onChange, options }) {
   const normalized = options.map((o) =>
-    typeof o === "string" ? { value: o, label: o } : o,
+    typeof o === "string" ? { value: o, label: o } : o
   );
   return (
     <div style={{ position: "relative" }}>
@@ -218,14 +226,7 @@ export function SelectField({ value, onChange, options }) {
 
 export function Toggle({ checked, onChange }) {
   return (
-    <label
-      style={{
-        position: "relative",
-        width: 42,
-        height: 24,
-        display: "inline-block",
-      }}
-    >
+    <label style={{ position: "relative", width: 42, height: 24, display: "inline-block" }}>
       <input
         type="checkbox"
         checked={checked}

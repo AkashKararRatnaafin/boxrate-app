@@ -12,6 +12,7 @@ import {
   pageStyle,
   cardStyle,
   NumField,
+  TextField,
   SelectField,
   Toggle,
   COLORS_UI,
@@ -23,8 +24,7 @@ import {
 
 function vendorRate(vendors, vendorId, fallback) {
   const v = vendors.find((v) => v.id === vendorId);
-  if (v && v.default_rate !== null && v.default_rate !== undefined)
-    return v.default_rate;
+  if (v && v.default_rate !== null && v.default_rate !== undefined) return v.default_rate;
   return fallback;
 }
 
@@ -36,6 +36,7 @@ function makeRow(id, defaults) {
     width: defaults.width ?? 3,
     qty: defaults.qty ?? 1,
     hasAcrylic: defaults.hasAcrylic ?? false,
+    description: defaults.description ?? "",
     color: defaults.color ?? "Blue",
     vendor: defaults.vendor,
     rate: defaults.rate,
@@ -46,16 +47,11 @@ function makeRow(id, defaults) {
 // initialRows (optional): raw extracted rows from the photo scan, shape:
 // { height, length, width, qty, has_acrylic, color }
 // initialVendor: vendor id (uuid) chosen on the capture screen
-export default function VerifyGrid({
-  initialRows,
-  initialVendor,
-  onBack,
-  onSaved,
-}) {
+export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved }) {
   const [vendors, setVendors] = useState([]);
   const [batchVendor, setBatchVendor] = useState(initialVendor || "");
   const [batchDate, setBatchDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    new Date().toISOString().slice(0, 10)
   );
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [saveError, setSaveError] = useState("");
@@ -80,6 +76,7 @@ export default function VerifyGrid({
           width: r.width,
           qty: r.qty,
           hasAcrylic: !!r.has_acrylic,
+          description: r.description || "",
           color: r.color || "Blue",
           vendor: initialVendor || "",
           rate: lastRates.current.rate,
@@ -109,7 +106,7 @@ export default function VerifyGrid({
         const targetVendor = r.vendor || batchVendor;
         const rate = vendorRate(vendors, targetVendor, r.rate);
         return { ...r, vendor: r.vendor || batchVendor, rate };
-      }),
+      })
     );
     const v = vendors.find((v) => v.id === batchVendor);
     if (v && v.default_rate !== null && v.default_rate !== undefined) {
@@ -137,11 +134,7 @@ export default function VerifyGrid({
     const rate = vendorRate(vendors, batchVendor, lastRates.current.rate);
     setRows((rs) => [
       ...rs,
-      makeRow(id, {
-        vendor: batchVendor,
-        rate,
-        acrylicRate: lastRates.current.acrylicRate,
-      }),
+      makeRow(id, { vendor: batchVendor, rate, acrylicRate: lastRates.current.acrylicRate }),
     ]);
   };
 
@@ -176,6 +169,7 @@ export default function VerifyGrid({
           qty: num(r.qty),
           has_acrylic: r.hasAcrylic,
           color: r.color,
+          description: r.description || null,
           rate: num(r.rate),
           acrylic_rate: r.hasAcrylic ? num(r.acrylicRate) : null,
           unit_price: price.unit,
@@ -183,9 +177,7 @@ export default function VerifyGrid({
         };
       });
 
-      const { error: itemsErr } = await supabase
-        .from("box_items")
-        .insert(itemsPayload);
+      const { error: itemsErr } = await supabase.from("box_items").insert(itemsPayload);
       if (itemsErr) throw itemsErr;
 
       setSaveState("saved");
@@ -193,9 +185,7 @@ export default function VerifyGrid({
     } catch (err) {
       console.error(err);
       setSaveState("error");
-      setSaveError(
-        err.message || "Couldn't save. Check your connection and try again.",
-      );
+      setSaveError(err.message || "Couldn't save. Check your connection and try again.");
     }
   }
 
@@ -206,7 +196,7 @@ export default function VerifyGrid({
       acc.amount += p.total;
       return acc;
     },
-    { boxes: 0, amount: 0 },
+    { boxes: 0, amount: 0 }
   );
 
   return (
@@ -270,6 +260,11 @@ export default function VerifyGrid({
                   }}
                 >
                   BOX {idx + 1}
+                  {row.description && (
+                    <span style={{ color: COLORS_UI.ink, fontWeight: 600, marginLeft: 6 }}>
+                      — {row.description}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => deleteRow(row.id)}
@@ -277,10 +272,7 @@ export default function VerifyGrid({
                   style={{
                     background: "none",
                     border: "none",
-                    color:
-                      rows.length === 1
-                        ? "rgba(28,28,30,0.25)"
-                        : COLORS_UI.accent,
+                    color: rows.length === 1 ? "rgba(28,28,30,0.25)" : COLORS_UI.accent,
                     cursor: rows.length === 1 ? "default" : "pointer",
                     padding: 4,
                     display: "flex",
@@ -322,6 +314,15 @@ export default function VerifyGrid({
                 />
               </div>
 
+              <div style={{ marginBottom: 10 }}>
+                <TextField
+                  label="Description (optional)"
+                  value={row.description}
+                  onChange={(v) => updateRow(row.id, { description: v })}
+                  placeholder="e.g. Silver glasses box"
+                />
+              </div>
+
               <div
                 style={{
                   display: "flex",
@@ -344,9 +345,7 @@ export default function VerifyGrid({
                     boxSizing: "border-box",
                   }}
                 >
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>
-                    Acrylic
-                  </span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
                   <Toggle
                     checked={row.hasAcrylic}
                     onChange={(v) => updateRow(row.id, { hasAcrylic: v })}
@@ -398,13 +397,7 @@ export default function VerifyGrid({
                 <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
                   {fmt(price.unit)} &times; {num(row.qty)}
                 </span>
-                <span
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: COLORS_UI.accentDark,
-                  }}
-                >
+                <span style={{ fontSize: 20, fontWeight: 700, color: COLORS_UI.accentDark }}>
                   {fmt(price.total)}
                 </span>
               </div>
@@ -438,31 +431,20 @@ export default function VerifyGrid({
       {/* Sticky glass total bar */}
       <div style={stickyBar}>
         <div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "rgba(255,255,255,0.75)",
-              letterSpacing: 1,
-            }}
-          >
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", letterSpacing: 1 }}>
             {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
             {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
           </div>
-          <div
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#fff",
-            }}
-          >
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>
             {fmt(totals.amount)}
           </div>
         </div>
         <button
           style={{
             background:
-              saveState === "saved" ? "var(--ok-grad)" : "var(--accent-grad)",
+              saveState === "saved"
+                ? "var(--ok-grad)"
+                : "var(--accent-grad)",
             color: "#fff",
             border: "none",
             borderRadius: 14,
@@ -513,6 +495,10 @@ export default function VerifyGrid({
     </div>
   );
 }
+
+
+
+
 
 const stickyBar = {
   position: "fixed",

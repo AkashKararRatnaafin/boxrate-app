@@ -10,9 +10,7 @@ function useTheme() {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("boxrate-theme");
     if (saved) return saved;
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 
   useEffect(() => {
@@ -76,7 +74,7 @@ export default function App() {
     );
   }
 
-  const showNav = screen !== "verify" && screen !== "batchDetail";
+  const showNav = screen !== "verify";
 
   return (
     <>
@@ -137,9 +135,7 @@ function NavBtn({ icon, label, active, onClick }) {
       }}
     >
       {icon}
-      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3 }}>
-        {label}
-      </span>
+      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3 }}>{label}</span>
     </button>
   );
 }
