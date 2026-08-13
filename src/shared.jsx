@@ -46,7 +46,9 @@ export const num = (v) => {
 };
 
 export function computePrice(row) {
-  const h = num(row.height), l = num(row.length), w = num(row.width);
+  const h = num(row.height),
+    l = num(row.length),
+    w = num(row.width);
   const rate = num(row.rate);
   const acrylicRate = num(row.acrylicRate);
   const boxPrice = (h + w) * (l + w) * rate;
@@ -55,53 +57,89 @@ export function computePrice(row) {
   return { boxPrice, acrylicPrice, unit, total: unit * num(row.qty) };
 }
 
-/* ---------- Glass design tokens ---------- */
+/* ---------- Design tokens (theme-aware via CSS variables) ---------- */
 
 export const COLORS_UI = {
-  ink: "#1C1C1E",
-  inkSoft: "#68686D",
-  accent: "#FF3B30",
-  accentDark: "#D6291F",
-  ok: "#30B858",
-  glassBorder: "rgba(255,255,255,0.55)",
+  ink: "var(--ink)",
+  inkSoft: "var(--ink-soft)",
+  accent: "var(--accent)",
+  accentDark: "var(--accent-dark)",
+  accentGrad: "var(--accent-grad)",
+  ok: "var(--ok)",
+  okGrad: "var(--ok-grad)",
+  glassBorder: "var(--card-border)",
 };
 
 export const pageStyle = {
   fontFamily: "'Inter', system-ui, sans-serif",
-  background:
-    "linear-gradient(150deg, #FFC48C 0%, #FF8A73 32%, #E85C77 58%, #8E5AB0 100%)",
+  background: "var(--page-bg)",
   backgroundAttachment: "fixed",
   minHeight: "100vh",
-  padding: "18px 12px 96px",
-  color: COLORS_UI.ink,
+  padding: "18px 12px 118px",
+  color: "var(--ink)",
 };
 
-// Frosted glass card — the core visual signature of this redesign.
 export const cardStyle = {
-  background: "rgba(255,255,255,0.46)",
+  background: "var(--card-bg)",
   backdropFilter: "blur(22px) saturate(160%)",
   WebkitBackdropFilter: "blur(22px) saturate(160%)",
-  border: `1px solid ${COLORS_UI.glassBorder}`,
+  border: "1px solid var(--card-border)",
   borderRadius: 20,
   padding: "16px 17px",
   marginBottom: 14,
-  boxShadow: "0 8px 28px rgba(60,20,50,0.14)",
+  boxShadow: "var(--shadow-card)",
   animation: "fadeInUp 0.25s ease both",
 };
 
-export const glassPanelDark = {
-  background: "rgba(28,28,30,0.55)",
-  backdropFilter: "blur(24px) saturate(160%)",
-  WebkitBackdropFilter: "blur(24px) saturate(160%)",
-  border: "1px solid rgba(255,255,255,0.14)",
-  color: "#fff",
+export const titleStyle = {
+  fontFamily: "'Special Elite', monospace",
+  fontSize: 27,
+  margin: "0 0 2px",
+  letterSpacing: 1,
+  color: "var(--ink)",
+  textShadow: "var(--title-shadow)",
+};
+
+export const subtitleStyle = {
+  margin: 0,
+  fontSize: 12,
+  letterSpacing: 2,
+  textTransform: "uppercase",
+  color: "var(--ink-soft)",
+  fontWeight: 600,
+};
+
+export const backBtnStyle = {
+  background: "none",
+  border: "none",
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  color: "var(--ink-soft)",
+  fontSize: 12,
+  fontWeight: 700,
+  padding: 0,
+  marginBottom: 8,
+  cursor: "pointer",
+};
+
+export const sectionLabelStyle = {
+  fontFamily: "'DM Mono', monospace",
+  fontSize: 11,
+  letterSpacing: 1.5,
+  textTransform: "uppercase",
+  color: "var(--ink-soft)",
+  marginBottom: 10,
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
 };
 
 export const labelStyle = {
   display: "block",
   fontSize: 11,
   fontWeight: 600,
-  color: COLORS_UI.inkSoft,
+  color: "var(--ink-soft)",
   marginBottom: 5,
   letterSpacing: 0.2,
 };
@@ -111,17 +149,22 @@ export const inputStyle = {
   fontFamily: "'DM Mono', monospace",
   fontSize: 14,
   padding: "9px 10px",
-  border: "1px solid rgba(28,28,30,0.12)",
+  border: "1px solid var(--input-border)",
   borderRadius: 12,
-  background: "rgba(255,255,255,0.55)",
-  color: COLORS_UI.ink,
+  background: "var(--input-bg)",
+  color: "var(--ink)",
   boxSizing: "border-box",
   outline: "none",
 };
 
 export function NumField({ label, value, onChange, disabled }) {
   return (
-    <div style={{ opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? "none" : "auto" }}>
+    <div
+      style={{
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
       <label style={labelStyle}>{label}</label>
       <input
         type="number"
@@ -136,7 +179,7 @@ export function NumField({ label, value, onChange, disabled }) {
 
 export function SelectField({ value, onChange, options }) {
   const normalized = options.map((o) =>
-    typeof o === "string" ? { value: o, label: o } : o
+    typeof o === "string" ? { value: o, label: o } : o,
   );
   return (
     <div style={{ position: "relative" }}>
@@ -166,7 +209,7 @@ export function SelectField({ value, onChange, options }) {
           top: "50%",
           transform: "translateY(-50%)",
           pointerEvents: "none",
-          color: COLORS_UI.inkSoft,
+          color: "var(--ink-soft)",
         }}
       />
     </div>
@@ -175,7 +218,14 @@ export function SelectField({ value, onChange, options }) {
 
 export function Toggle({ checked, onChange }) {
   return (
-    <label style={{ position: "relative", width: 42, height: 24, display: "inline-block" }}>
+    <label
+      style={{
+        position: "relative",
+        width: 42,
+        height: 24,
+        display: "inline-block",
+      }}
+    >
       <input
         type="checkbox"
         checked={checked}
@@ -186,7 +236,7 @@ export function Toggle({ checked, onChange }) {
         style={{
           position: "absolute",
           inset: 0,
-          background: checked ? COLORS_UI.ok : "rgba(28,28,30,0.18)",
+          background: checked ? "var(--ok)" : "var(--toggle-off)",
           borderRadius: 20,
           transition: "0.18s",
           cursor: "pointer",
@@ -210,13 +260,12 @@ export function Toggle({ checked, onChange }) {
   );
 }
 
-// Primary iOS-style pill button — vivid gradient fill, soft glow.
 export const primaryBtn = {
   width: "100%",
   padding: "15px",
   borderRadius: 16,
   border: "none",
-  background: "linear-gradient(135deg, #FF5B4A 0%, #E8394F 100%)",
+  background: "var(--accent-grad)",
   color: "#fff",
   fontWeight: 700,
   fontSize: 15,
@@ -225,19 +274,35 @@ export const primaryBtn = {
   justifyContent: "center",
   gap: 8,
   cursor: "pointer",
-  boxShadow: "0 8px 20px rgba(232,57,79,0.35)",
+  boxShadow: "0 8px 20px var(--accent-glow)",
 };
 
 export const secondaryBtn = {
   width: "100%",
   padding: "13px",
   borderRadius: 16,
-  border: `1px solid ${COLORS_UI.glassBorder}`,
-  background: "rgba(255,255,255,0.4)",
+  border: "1px solid var(--card-border)",
+  background: "var(--input-bg)",
   backdropFilter: "blur(16px)",
   WebkitBackdropFilter: "blur(16px)",
-  color: COLORS_UI.ink,
+  color: "var(--ink)",
   fontWeight: 600,
+  fontSize: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  cursor: "pointer",
+};
+
+export const dangerBtn = {
+  width: "100%",
+  padding: "13px",
+  borderRadius: 16,
+  border: "1px solid rgba(178,58,46,0.4)",
+  background: "rgba(178,58,46,0.12)",
+  color: "var(--accent)",
+  fontWeight: 700,
   fontSize: 14,
   display: "flex",
   alignItems: "center",

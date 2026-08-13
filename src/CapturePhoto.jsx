@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, Image as ImageIcon, ArrowRight, AlertCircle, Store } from "lucide-react";
+import {
+  Camera,
+  Image as ImageIcon,
+  ArrowRight,
+  AlertCircle,
+  Store,
+} from "lucide-react";
 import { supabase } from "./supabaseClient.js";
 import {
   fetchVendors,
@@ -9,6 +15,8 @@ import {
   SelectField,
   primaryBtn,
   secondaryBtn,
+  titleStyle,
+  subtitleStyle,
   COLORS_UI,
 } from "./shared.jsx";
 
@@ -84,7 +92,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
       setErrorMsg(
         known
           ? err.message
-          : `Couldn't read that photo (${err.message || "unknown error"}). Try a clearer, well-lit shot, or enter the boxes manually.`
+          : `Couldn't read that photo (${err.message || "unknown error"}). Try a clearer, well-lit shot, or enter the boxes manually.`,
       );
     }
   }
@@ -100,7 +108,9 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         <div style={cardStyle}>
           <label style={labelStyle}>Vendor for this batch</label>
           {vendorsLoading ? (
-            <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>Loading vendors…</div>
+            <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
+              Loading vendors…
+            </div>
           ) : vendors.length === 0 ? (
             <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
               No vendors yet.{" "}
@@ -124,7 +134,14 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         </div>
 
         {previewUrl && (
-          <div style={{ ...cardStyle, padding: 8, position: "relative", overflow: "hidden" }}>
+          <div
+            style={{
+              ...cardStyle,
+              padding: 8,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
             <img
               src={previewUrl}
               alt="Selected sheet"
@@ -209,7 +226,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
               border: `1.5px solid ${COLORS_UI.accent}`,
             }}
           >
-            <AlertCircle size={18} color={COLORS_UI.accent} style={{ flexShrink: 0, marginTop: 2 }} />
+            <AlertCircle
+              size={18}
+              color={COLORS_UI.accent}
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
             <div style={{ fontSize: 13, color: COLORS_UI.ink }}>{errorMsg}</div>
           </div>
         )}
@@ -235,7 +256,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
             <button
               onClick={() => cameraInputRef.current?.click()}
               disabled={!vendor}
-              style={{ ...primaryBtn, opacity: vendor ? 1 : 0.5, marginBottom: 10 }}
+              style={{
+                ...primaryBtn,
+                opacity: vendor ? 1 : 0.5,
+                marginBottom: 10,
+              }}
             >
               <Camera size={19} /> Take photo
             </button>
@@ -243,7 +268,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
             <button
               onClick={() => galleryInputRef.current?.click()}
               disabled={!vendor}
-              style={{ ...secondaryBtn, opacity: vendor ? 1 : 0.5, marginBottom: 14 }}
+              style={{
+                ...secondaryBtn,
+                opacity: vendor ? 1 : 0.5,
+                marginBottom: 14,
+              }}
             >
               <ImageIcon size={17} /> Choose from gallery
             </button>
@@ -261,24 +290,6 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
     </div>
   );
 }
-
-const titleStyle = {
-  fontFamily: "'Special Elite', monospace",
-  fontSize: 28,
-  margin: "0 0 2px",
-  letterSpacing: 1,
-  color: "#fff",
-  textShadow: "0 2px 12px rgba(0,0,0,0.15)",
-};
-
-const subtitleStyle = {
-  margin: 0,
-  fontSize: 12,
-  letterSpacing: 2,
-  textTransform: "uppercase",
-  color: "rgba(255,255,255,0.85)",
-  fontWeight: 600,
-};
 
 const linkBtn = {
   background: "none",
