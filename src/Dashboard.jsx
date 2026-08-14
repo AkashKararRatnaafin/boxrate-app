@@ -85,6 +85,19 @@ export default function Dashboard({ onBack }) {
     return [...map.values()].sort((a, b) => b.total_sales - a.total_sales);
   }, [filteredOrders]);
 
+  const grandTotal = useMemo(
+    () =>
+      vendorTotals.reduce(
+        (acc, v) => {
+          acc.boxes += v.total_boxes;
+          acc.amount += v.total_sales;
+          return acc;
+        },
+        { boxes: 0, amount: 0 },
+      ),
+    [vendorTotals],
+  );
+
   const chartData = useMemo(
     () =>
       vendorTotals.map((v) => ({
@@ -101,7 +114,7 @@ export default function Dashboard({ onBack }) {
 
   return (
     <div style={pageStyle}>
-      <div style={{ maxWidth: 460, margin: "0 auto" }}>
+      <div className="dash-wrap" style={{ margin: "0 auto" }}>
         <div style={{ padding: "10px 6px 18px" }}>
           {onBack && (
             <button onClick={onBack} style={backBtnStyle}>
@@ -136,178 +149,200 @@ export default function Dashboard({ onBack }) {
           </div>
         ) : (
           <>
-            <div style={cardStyle}>
-              <div style={sectionLabelStyle}>
-                <TrendingUp size={13} /> Totals by vendor
-              </div>
-              {vendorTotals.length === 0 ? (
-                <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
-                  No orders match this filter.
+            <div className="dash-grid">
+              <div style={cardStyle}>
+                <div style={sectionLabelStyle}>
+                  <TrendingUp size={13} /> Totals by vendor
                 </div>
-              ) : (
-                vendorTotals.map((v) => (
+                {vendorTotals.length === 0 ? (
+                  <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
+                    No orders match this filter.
+                  </div>
+                ) : (
+                  vendorTotals.map((v) => (
+                    <div
+                      key={v.vendor_id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "10px 0",
+                        borderTop: "1px dashed rgba(28,28,30,0.14)",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>
+                          {v.vendor_name}
+                        </div>
+                        <div
+                          style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}
+                        >
+                          {v.order_count} order{v.order_count === 1 ? "" : "s"}{" "}
+                          &middot; {v.total_boxes} boxes
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: "'DM Mono', monospace",
+                          fontSize: 17,
+                          fontWeight: 700,
+                          color: COLORS_UI.accentDark,
+                        }}
+                      >
+                        {fmt(v.total_sales)}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {vendorTotals.length > 0 && (
                   <div
-                    key={v.vendor_id}
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "10px 0",
-                      borderTop: "1px dashed rgba(28,28,30,0.14)",
+                      paddingTop: 10,
+                      marginTop: 4,
+                      borderTop: "1.5px solid rgba(28,28,30,0.25)",
+                      fontWeight: 700,
+                      fontSize: 14,
                     }}
                   >
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>
-                        {v.vendor_name}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
-                        {v.order_count} order{v.order_count === 1 ? "" : "s"}{" "}
-                        &middot; {v.total_boxes} boxes
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "'DM Mono', monospace",
-                        fontSize: 17,
-                        fontWeight: 700,
-                        color: COLORS_UI.accentDark,
-                      }}
-                    >
-                      {fmt(v.total_sales)}
-                    </div>
+                    <span>{grandTotal.boxes} boxes total</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace" }}>
+                      {fmt(grandTotal.amount)}
+                    </span>
                   </div>
-                ))
-              )}
-            </div>
+                )}
+              </div>
 
-            <div style={cardStyle}>
-              <div style={sectionLabelStyle}>
-                <Calendar size={13} /> Filter
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                <label style={labelStyle}>Vendor</label>
-                <SelectField
-                  value={vendorFilter}
-                  onChange={setVendorFilter}
-                  options={[
-                    { value: "all", label: "All vendors" },
-                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
-                  ]}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>From</label>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    style={inputStyle}
+              <div style={cardStyle}>
+                <div style={sectionLabelStyle}>
+                  <Calendar size={13} /> Filter
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={labelStyle}>Vendor</label>
+                  <SelectField
+                    value={vendorFilter}
+                    onChange={setVendorFilter}
+                    options={[
+                      { value: "all", label: "All vendors" },
+                      ...vendors.map((v) => ({ value: v.id, label: v.name })),
+                    ]}
                   />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>To</label>
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    style={inputStyle}
-                  />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>From</label>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>To</label>
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div style={cardStyle}>
-              <div style={sectionLabelStyle}>
-                <BarChart3 size={13} /> Boxes &amp; sales by vendor
-              </div>
-              {chartData.length === 0 ? (
-                <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
-                  No orders match this filter.
+              <div style={cardStyle} className="dash-span-2">
+                <div style={sectionLabelStyle}>
+                  <BarChart3 size={13} /> Boxes &amp; sales by vendor
                 </div>
-              ) : (
-                <div style={{ width: "100%", height: 240 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={chartData}
-                      margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(28,28,30,0.1)"
-                      />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
-                        axisLine={{ stroke: "rgba(28,28,30,0.15)" }}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        yAxisId="left"
-                        tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={30}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={38}
-                      />
-                      <Tooltip
-                        formatter={(value, key) =>
-                          key === "amount"
-                            ? [fmt(value), "Amount"]
-                            : [value, "Boxes"]
-                        }
-                        labelFormatter={(_, payload) =>
-                          payload?.[0]?.payload?.fullName || ""
-                        }
-                        contentStyle={{
-                          background: "rgba(255,255,255,0.95)",
-                          border: "1px solid rgba(28,28,30,0.15)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Bar
-                        yAxisId="left"
-                        dataKey="boxes"
-                        fill="#B23A2E"
-                        radius={[4, 4, 0, 0]}
-                        name="Boxes"
-                      />
-                      <Bar
-                        yAxisId="right"
-                        dataKey="amount"
-                        fill="#8E6A3E"
-                        radius={[4, 4, 0, 0]}
-                        name="Amount"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                {chartData.length === 0 ? (
+                  <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
+                    No orders match this filter.
+                  </div>
+                ) : (
+                  <div style={{ width: "100%", height: 240 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={chartData}
+                        margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(28,28,30,0.1)"
+                        />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
+                          axisLine={{ stroke: "rgba(28,28,30,0.15)" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={30}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={38}
+                        />
+                        <Tooltip
+                          formatter={(value, key) =>
+                            key === "amount"
+                              ? [fmt(value), "Amount"]
+                              : [value, "Boxes"]
+                          }
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.fullName || ""
+                          }
+                          contentStyle={{
+                            background: "rgba(255,255,255,0.95)",
+                            border: "1px solid rgba(28,28,30,0.15)",
+                            borderRadius: 8,
+                            fontSize: 12,
+                          }}
+                        />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="boxes"
+                          fill="#B23A2E"
+                          radius={[4, 4, 0, 0]}
+                          name="Boxes"
+                        />
+                        <Bar
+                          yAxisId="right"
+                          dataKey="amount"
+                          fill="#8E6A3E"
+                          radius={[4, 4, 0, 0]}
+                          name="Amount"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 14,
+                    marginTop: 8,
+                    fontSize: 11,
+                    color: COLORS_UI.inkSoft,
+                  }}
+                >
+                  <span>
+                    <span style={{ color: "#B23A2E", fontWeight: 700 }}>■</span>{" "}
+                    Boxes
+                  </span>
+                  <span>
+                    <span style={{ color: "#8E6A3E", fontWeight: 700 }}>■</span>{" "}
+                    Amount (₹)
+                  </span>
                 </div>
-              )}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 14,
-                  marginTop: 8,
-                  fontSize: 11,
-                  color: COLORS_UI.inkSoft,
-                }}
-              >
-                <span>
-                  <span style={{ color: "#B23A2E", fontWeight: 700 }}>■</span>{" "}
-                  Boxes
-                </span>
-                <span>
-                  <span style={{ color: "#8E6A3E", fontWeight: 700 }}>■</span>{" "}
-                  Amount (₹)
-                </span>
               </div>
             </div>
           </>

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Trash2, Plus, ArrowLeft, Store, Check } from "lucide-react";
+import { supabase } from "./supabaseClient.js";
 import {
   fetchVendors,
   createVendor,
   deleteVendor,
   updateVendorRates,
+  fmt,
   pageStyle,
   cardStyle,
   inputStyle,
@@ -14,9 +16,11 @@ import {
   titleStyle,
   subtitleStyle,
   backBtnStyle,
+  useConfirm,
 } from "./shared.jsx";
 
 export default function VendorManager({ onBack }) {
+  const { confirm, dialog } = useConfirm();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -70,10 +74,33 @@ export default function VendorManager({ onBack }) {
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(v) {
     try {
-      await deleteVendor(id);
-      setVendors((vs) => vs.filter((v) => v.id !== id));
+      const { data, error: sumErr } = await supabase
+        .from("box_items")
+        .select("qty, total_price")
+        .eq("vendor_id", v.id);
+      if (sumErr) throw sumErr;
+      const boxCount = data.reduce((sum, it) => sum + Number(it.qty || 0), 0);
+      const total = data.reduce(
+        (sum, it) => sum + Number(it.total_price || 0),
+        0,
+      );
+
+      const message =
+        boxCount > 0
+          ? `${v.name} has ${boxCount} box${boxCount === 1 ? "" : "es"} worth ${fmt(total)} across its orders. Deleting this vendor will delete all of that history too. This can't be undone.`
+          : `Delete ${v.name}? This can't be undone.`;
+
+      const ok = await confirm({
+        title: "Delete this vendor?",
+        message,
+        confirmLabel: "Delete vendor",
+      });
+      if (!ok) return;
+
+      await deleteVendor(v.id);
+      setVendors((vs) => vs.filter((x) => x.id !== v.id));
     } catch (err) {
       setError("Couldn't delete: " + err.message);
     }
@@ -219,7 +246,7 @@ export default function VendorManager({ onBack }) {
                     {v.name}
                   </span>
                   <button
-                    onClick={() => handleDelete(v.id)}
+                    onClick={() => handleDelete(v)}
                     style={{
                       background: "none",
                       border: "none",
@@ -295,6 +322,7 @@ export default function VendorManager({ onBack }) {
           })
         )}
       </div>
+      {dialog}
     </div>
   );
 }

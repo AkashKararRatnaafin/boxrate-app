@@ -20,9 +20,11 @@ import {
   subtitleStyle,
   backBtnStyle,
   sectionLabelStyle,
+  useConfirm,
 } from "./shared.jsx";
 
 export default function Orders({ onBack, onOpenOrder }) {
+  const { confirm, dialog } = useConfirm();
   const [vendors, setVendors] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,13 +58,20 @@ export default function Orders({ onBack, onOpenOrder }) {
     load();
   }, []);
 
-  async function handleDeleteOrder(vendorId, batchDate) {
-    if (
-      !window.confirm(
-        "Delete this order and all its boxes? This can't be undone.",
-      )
-    )
-      return;
+  async function handleDeleteOrder(
+    vendorId,
+    batchDate,
+    vendorName,
+    boxCount,
+    totalPrice,
+  ) {
+    if (!vendorId) return;
+    const ok = await confirm({
+      title: "Delete this order?",
+      message: `This will delete ${boxCount} box${boxCount === 1 ? "" : "es"} for ${vendorName || "this vendor"} worth ${fmt(totalPrice)}. This can't be undone.`,
+      confirmLabel: "Delete order",
+    });
+    if (!ok) return;
     setError("");
     try {
       const { error } = await supabase
@@ -242,7 +251,13 @@ export default function Orders({ onBack, onOpenOrder }) {
                     </button>
                     <button
                       onClick={() =>
-                        handleDeleteOrder(o.vendor_id, o.batch_date)
+                        handleDeleteOrder(
+                          o.vendor_id,
+                          o.batch_date,
+                          o.vendor_name,
+                          o.box_count,
+                          o.total_price,
+                        )
                       }
                       aria-label="Delete order"
                       style={{
@@ -263,6 +278,7 @@ export default function Orders({ onBack, onOpenOrder }) {
           </>
         )}
       </div>
+      {dialog}
     </div>
   );
 }

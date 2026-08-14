@@ -30,6 +30,7 @@ import {
   secondaryBtn,
   dangerBtn,
   COLORS_UI,
+  useConfirm,
 } from "./shared.jsx";
 
 function vendorRate(vendors, vendorId, fallback) {
@@ -76,6 +77,7 @@ export default function BatchDetail({
   onBack,
   onDeleted,
 }) {
+  const { confirm, dialog } = useConfirm();
   const [vendorName, setVendorName] = useState("");
   const [items, setItems] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -174,7 +176,12 @@ export default function BatchDetail({
       setEditRows((rs) => rs.filter((r) => r.id !== id));
       return;
     }
-    if (!window.confirm("Delete this box?")) return;
+    const ok = await confirm({
+      title: "Delete this box?",
+      message: "This can't be undone.",
+      confirmLabel: "Delete box",
+    });
+    if (!ok) return;
     try {
       const { error } = await supabase.from("box_items").delete().eq("id", id);
       if (error) throw error;
@@ -255,12 +262,17 @@ export default function BatchDetail({
   }
 
   async function handleDeleteOrder() {
-    if (
-      !window.confirm(
-        "Delete this entire order and all its boxes? This can't be undone.",
-      )
-    )
-      return;
+    const boxCount = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
+    const total = items.reduce(
+      (sum, it) => sum + Number(it.total_price || 0),
+      0,
+    );
+    const ok = await confirm({
+      title: "Delete this order?",
+      message: `This will delete ${boxCount} box${boxCount === 1 ? "" : "es"} worth ${fmt(total)} for ${vendorName || "this vendor"}. This can't be undone.`,
+      confirmLabel: "Delete order",
+    });
+    if (!ok) return;
     setDeletingOrder(true);
     try {
       const { error } = await supabase
@@ -660,6 +672,7 @@ export default function BatchDetail({
           </>
         )}
       </div>
+      {dialog}
     </div>
   );
 }

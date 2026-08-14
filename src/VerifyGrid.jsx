@@ -305,28 +305,15 @@ export default function VerifyGrid({
         </div>
 
         <div style={cardStyle}>
-          <div style={sectionLabelStyle}>This batch</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Vendor</label>
-              <SelectField
-                value={batchVendor}
-                onChange={(v) => setBatchVendor(v)}
-                options={vendors.map((v) => ({ value: v.id, label: v.name }))}
-              />
-            </div>
-            <div style={{ width: 140 }}>
-              <label style={labelStyle}>Date</label>
-              <input
-                type="date"
-                value={batchDate}
-                onChange={(e) => setBatchDate(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
+          <div style={sectionLabelStyle}>Date</div>
+          <input
+            type="date"
+            value={batchDate}
+            onChange={(e) => setBatchDate(e.target.value)}
+            style={inputStyle}
+          />
           <div style={{ fontSize: 11, color: COLORS_UI.inkSoft, marginTop: 8 }}>
-            Applies to new boxes below — override per box if needed.
+            Applies to every box below. Vendor is set per box further down.
           </div>
         </div>
 

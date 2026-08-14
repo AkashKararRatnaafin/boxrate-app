@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "./supabaseClient.js";
 
@@ -335,3 +335,99 @@ export const dangerBtn = {
   gap: 8,
   cursor: "pointer",
 };
+
+/* ---------- Custom confirm dialog (replaces browser confirm()) ---------- */
+
+export function useConfirm() {
+  const [state, setState] = useState(null); // { title, message, confirmLabel, resolve } | null
+
+  function confirm(opts) {
+    const options = typeof opts === "string" ? { message: opts } : opts;
+    return new Promise((resolve) => {
+      setState({ ...options, resolve });
+    });
+  }
+
+  function respond(result) {
+    state?.resolve(result);
+    setState(null);
+  }
+
+  const dialog = state ? (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(0,0,0,0.45)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+      onClick={() => respond(false)}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          ...cardStyle,
+          maxWidth: 360,
+          width: "100%",
+          margin: 0,
+          animation: "fadeInUp 0.18s ease both",
+        }}
+      >
+        {state.title && (
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 16,
+              marginBottom: 8,
+              color: "var(--ink)",
+            }}
+          >
+            {state.title}
+          </div>
+        )}
+        <div
+          style={{
+            fontSize: 13.5,
+            color: "var(--ink-soft)",
+            lineHeight: 1.5,
+            marginBottom: 18,
+          }}
+        >
+          {state.message}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => respond(false)}
+            style={{ ...secondaryBtn, flex: 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => respond(true)}
+            style={{
+              flex: 1,
+              padding: "13px",
+              borderRadius: 16,
+              border: "none",
+              background: "var(--accent-grad)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+              boxShadow: "0 8px 20px var(--accent-glow)",
+            }}
+          >
+            {state.confirmLabel || "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return { confirm, dialog };
+}

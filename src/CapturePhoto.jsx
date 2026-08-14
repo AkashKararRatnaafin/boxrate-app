@@ -98,7 +98,14 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
   }
 
   return (
-    <div style={pageStyle}>
+    <div
+      style={{
+        ...pageStyle,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+      }}
+    >
       <div style={{ maxWidth: 460, margin: "0 auto" }}>
         <div style={{ padding: "10px 6px 18px" }}>
           <h1 style={titleStyle}>BoxRate</h1>
