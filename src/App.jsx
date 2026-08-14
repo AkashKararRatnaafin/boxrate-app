@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Camera, LayoutDashboard, Store, Sun, Moon } from "lucide-react";
+import {
+  Camera,
+  LayoutDashboard,
+  ClipboardList,
+  Store,
+  Sun,
+  Moon,
+} from "lucide-react";
 import CapturePhoto from "./CapturePhoto.jsx";
 import VerifyGrid from "./VerifyGrid.jsx";
 import VendorManager from "./VendorManager.jsx";
 import Dashboard from "./Dashboard.jsx";
+import Orders from "./Orders.jsx";
 import BatchDetail from "./BatchDetail.jsx";
 
 function useTheme() {
@@ -25,13 +33,20 @@ function useTheme() {
 
 export default function App() {
   const [theme, setTheme] = useTheme();
-  const [screen, setScreen] = useState("capture"); // capture | verify | vendors | dashboard | batchDetail
+  const [screen, setScreen] = useState("capture"); // capture | verify | vendors | dashboard | orders | batchDetail
   const [extraction, setExtraction] = useState({ rows: null, vendor: null });
   const [openOrder, setOpenOrder] = useState(null); // { vendorId, batchDate } | null
+  const [returnScreen, setReturnScreen] = useState("orders"); // where batchDetail's back button goes
 
   function handleExtracted(rows, vendor) {
     setExtraction({ rows, vendor });
     setScreen("verify");
+  }
+
+  function openOrderDetail(vendorId, batchDate, from) {
+    setOpenOrder({ vendorId, batchDate });
+    setReturnScreen(from);
+    setScreen("batchDetail");
   }
 
   let body;
@@ -42,20 +57,21 @@ export default function App() {
       <BatchDetail
         vendorId={openOrder?.vendorId}
         batchDate={openOrder?.batchDate}
-        onBack={() => setScreen("dashboard")}
-        onDeleted={() => setScreen("dashboard")}
+        onBack={() => setScreen(returnScreen)}
+        onDeleted={() => setScreen(returnScreen)}
+      />
+    );
+  } else if (screen === "orders") {
+    body = (
+      <Orders
+        onBack={() => setScreen("capture")}
+        onOpenOrder={(vendorId, batchDate) =>
+          openOrderDetail(vendorId, batchDate, "orders")
+        }
       />
     );
   } else if (screen === "dashboard") {
-    body = (
-      <Dashboard
-        onBack={() => setScreen("capture")}
-        onOpenBatch={(vendorId, batchDate) => {
-          setOpenOrder({ vendorId, batchDate });
-          setScreen("batchDetail");
-        }}
-      />
-    );
+    body = <Dashboard onBack={() => setScreen("capture")} />;
   } else if (screen === "verify") {
     body = (
       <VerifyGrid
@@ -95,19 +111,25 @@ export default function App() {
       {showNav && (
         <nav className="no-print" style={navWrapStyle}>
           <NavBtn
-            icon={<Camera size={19} />}
+            icon={<Camera size={18} />}
             label="Scan"
             active={screen === "capture"}
             onClick={() => setScreen("capture")}
           />
           <NavBtn
-            icon={<LayoutDashboard size={19} />}
+            icon={<LayoutDashboard size={18} />}
             label="Dashboard"
             active={screen === "dashboard"}
             onClick={() => setScreen("dashboard")}
           />
           <NavBtn
-            icon={<Store size={19} />}
+            icon={<ClipboardList size={18} />}
+            label="Orders"
+            active={screen === "orders" || screen === "batchDetail"}
+            onClick={() => setScreen("orders")}
+          />
+          <NavBtn
+            icon={<Store size={18} />}
             label="Vendors"
             active={screen === "vendors"}
             onClick={() => setScreen("vendors")}
@@ -131,14 +153,14 @@ function NavBtn({ icon, label, active, onClick }) {
         flexDirection: "column",
         alignItems: "center",
         gap: 2,
-        padding: "9px 4px 8px",
+        padding: "9px 2px 8px",
         cursor: "pointer",
         color: active ? "#FF6B54" : "rgba(255,255,255,0.55)",
         transition: "background 0.18s, color 0.18s",
       }}
     >
       {icon}
-      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3 }}>
         {label}
       </span>
     </button>
