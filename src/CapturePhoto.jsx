@@ -33,8 +33,7 @@ function fileToBase64(file) {
   });
 }
 
-// onExtracted(boxes, manualVendorId, detectedVendorName, detectedDate, writtenTotal)
-// boxes is null when skipping straight to manual entry.
+// onExtracted(rows, vendorId) — rows are raw extraction objects, or null to skip straight to manual entry
 export default function CapturePhoto({ onExtracted, onManageVendors }) {
   const [vendors, setVendors] = useState([]);
   const [vendorsLoading, setVendorsLoading] = useState(true);
@@ -47,7 +46,10 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
 
   useEffect(() => {
     fetchVendors()
-      .then((vs) => setVendors(vs))
+      .then((vs) => {
+        setVendors(vs);
+        if (vs.length > 0) setVendor(vs[0].id);
+      })
       .catch((err) => setErrorMsg("Couldn't load vendors: " + err.message))
       .finally(() => setVendorsLoading(false));
   }, []);
@@ -77,18 +79,12 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         throw new Error(detail);
       }
       if (data?.error) throw new Error(data.error);
-      if (!data?.boxes || data.boxes.length === 0) {
+      if (!data?.rows || data.rows.length === 0) {
         throw new Error("No boxes were found in that photo.");
       }
 
       setStatus("idle");
-      onExtracted(
-        data.boxes,
-        vendor,
-        data.vendor_name,
-        data.date,
-        data.written_total,
-      );
+      onExtracted(data.rows, vendor);
     } catch (err) {
       console.error(err);
       setStatus("error");
@@ -110,7 +106,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         </div>
 
         <div style={cardStyle}>
-          <label style={labelStyle}>Vendor</label>
+          <label style={labelStyle}>Vendor for this batch</label>
           {vendorsLoading ? (
             <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
               Loading vendors…
@@ -128,18 +124,8 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
               <SelectField
                 value={vendor}
                 onChange={setVendor}
-                options={[
-                  { value: "", label: "Auto-detect from photo" },
-                  ...vendors.map((v) => ({ value: v.id, label: v.name })),
-                ]}
+                options={vendors.map((v) => ({ value: v.id, label: v.name }))}
               />
-              <div
-                style={{ fontSize: 11, color: COLORS_UI.inkSoft, marginTop: 6 }}
-              >
-                Leave on auto-detect and we'll read the vendor name off the
-                page. Pick one manually only if this page doesn't repeat the
-                vendor heading.
-              </div>
               <button onClick={onManageVendors} style={manageLink}>
                 <Store size={12} /> Manage vendors
               </button>
