@@ -66,8 +66,17 @@ function toEditRow(item) {
   };
 }
 
-export default function BatchDetail({ batchId, onBack, onDeleted }) {
-  const [batch, setBatch] = useState(null);
+// An "order" here is identified by (vendorId, batchDate) — not a single
+// batches row — since one box scan can hold boxes for several vendors and
+// each vendor's boxes need to group/print separately regardless of which
+// physical batch row they were inserted under.
+export default function BatchDetail({
+  vendorId,
+  batchDate,
+  onBack,
+  onDeleted,
+}) {
+  const [vendorName, setVendorName] = useState("");
   const [items, setItems] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,33 +84,30 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editRows, setEditRows] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [deletingBatch, setDeletingBatch] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(false);
   const tempIdRef = useRef(0);
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const [batchRes, itemsRes, vs] = await Promise.all([
-        supabase
-          .from("batches")
-          .select("id, batch_date, vendor_id, vendors(name)")
-          .eq("id", batchId)
-          .single(),
+      const [vendorRes, itemsRes, vs] = await Promise.all([
+        supabase.from("vendors").select("name").eq("id", vendorId).single(),
         supabase
           .from("box_items")
           .select("*")
-          .eq("batch_id", batchId)
+          .eq("vendor_id", vendorId)
+          .eq("batch_date", batchDate)
           .order("created_at"),
         fetchVendors(),
       ]);
-      if (batchRes.error) throw batchRes.error;
+      if (vendorRes.error) throw vendorRes.error;
       if (itemsRes.error) throw itemsRes.error;
-      setBatch(batchRes.data);
+      setVendorName(vendorRes.data.name);
       setItems(itemsRes.data);
       setVendors(vs);
     } catch (err) {
-      setError(err.message || "Couldn't load this batch.");
+      setError(err.message || "Couldn't load this order.");
     } finally {
       setLoading(false);
     }
@@ -110,7 +116,7 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchId]);
+  }, [vendorId, batchDate]);
 
   function startEditing() {
     setEditRows(items.map(toEditRow));
@@ -126,21 +132,24 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
     setEditRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  function changeRowVendor(id, vendorId) {
-    const current = editRows.find((r) => r.id === id);
-    const rate = vendorRate(vendors, vendorId, current?.rate);
+  function changeRowVendor(id, newVendorId) {
+    const rate = vendorRate(
+      vendors,
+      newVendorId,
+      editRows.find((r) => r.id === id)?.rate,
+    );
     const acrylicRate = vendorAcrylicRate(
       vendors,
-      vendorId,
-      current?.acrylicRate,
+      newVendorId,
+      editRows.find((r) => r.id === id)?.acrylicRate,
     );
-    updateEditRow(id, { vendor: vendorId, rate, acrylicRate });
+    updateEditRow(id, { vendor: newVendorId, rate, acrylicRate });
   }
 
   function addBlankRow() {
     const tempId = `new-${tempIdRef.current++}`;
-    const rate = vendorRate(vendors, batch?.vendor_id, 2.5);
-    const acrylicRate = vendorAcrylicRate(vendors, batch?.vendor_id, 0.6);
+    const rate = vendorRate(vendors, vendorId, 2.5);
+    const acrylicRate = vendorAcrylicRate(vendors, vendorId, 0.6);
     setEditRows((rs) => [
       ...rs,
       {
@@ -152,7 +161,7 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
         hasAcrylic: false,
         description: "",
         color: "Blue",
-        vendor: batch?.vendor_id || "",
+        vendor: vendorId,
         rate,
         acrylicRate,
       },
@@ -165,7 +174,7 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
       setEditRows((rs) => rs.filter((r) => r.id !== id));
       return;
     }
-    if (!window.confirm("Delete this box from the batch?")) return;
+    if (!window.confirm("Delete this box?")) return;
     try {
       const { error } = await supabase.from("box_items").delete().eq("id", id);
       if (error) throw error;
@@ -176,15 +185,39 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
     }
   }
 
+  // A box moved to a different vendor here leaves this order's view (it now
+  // belongs to that vendor's own order for this date instead).
   async function saveChanges() {
     setSaving(true);
     setError("");
     try {
+      // Every row needs a real batches container row to attach to. Reuse one
+      // for this date if it exists, otherwise create one.
+      const { data: existingBatch, error: findErr } = await supabase
+        .from("batches")
+        .select("id")
+        .eq("batch_date", batchDate)
+        .limit(1)
+        .maybeSingle();
+      if (findErr) throw findErr;
+
+      let containerBatchId = existingBatch?.id;
+      if (!containerBatchId) {
+        const { data: newBatch, error: createErr } = await supabase
+          .from("batches")
+          .insert({ vendor_id: vendorId, batch_date: batchDate })
+          .select("id")
+          .single();
+        if (createErr) throw createErr;
+        containerBatchId = newBatch.id;
+      }
+
       for (const row of editRows) {
         const price = computePrice(row);
+        const rowVendorId = row.vendor || vendorId;
         const payload = {
-          batch_id: batchId,
-          vendor_id: row.vendor || batch.vendor_id,
+          vendor_id: rowVendorId,
+          batch_date: batchDate,
           height: num(row.height),
           length: num(row.length),
           width: num(row.width),
@@ -199,7 +232,9 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
         };
         const isNew = String(row.id).startsWith("new-");
         if (isNew) {
-          const { error } = await supabase.from("box_items").insert(payload);
+          const { error } = await supabase
+            .from("box_items")
+            .insert({ ...payload, batch_id: containerBatchId });
           if (error) throw error;
         } else {
           const { error } = await supabase
@@ -219,24 +254,25 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
     }
   }
 
-  async function handleDeleteBatch() {
+  async function handleDeleteOrder() {
     if (
       !window.confirm(
-        "Delete this entire batch and all its boxes? This can't be undone.",
+        "Delete this entire order and all its boxes? This can't be undone.",
       )
     )
       return;
-    setDeletingBatch(true);
+    setDeletingOrder(true);
     try {
       const { error } = await supabase
-        .from("batches")
+        .from("box_items")
         .delete()
-        .eq("id", batchId);
+        .eq("vendor_id", vendorId)
+        .eq("batch_date", batchDate);
       if (error) throw error;
       onDeleted();
     } catch (err) {
-      setError("Couldn't delete batch: " + err.message);
-      setDeletingBatch(false);
+      setError("Couldn't delete order: " + err.message);
+      setDeletingOrder(false);
     }
   }
 
@@ -265,8 +301,8 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
           }}
         >
           <div>
-            <h1 style={titleStyle}>{batch?.vendors?.name || "Batch"}</h1>
-            <p style={subtitleStyle}>{batch?.batch_date}</p>
+            <h1 style={titleStyle}>{vendorName || "Order"}</h1>
+            <p style={subtitleStyle}>{batchDate}</p>
           </div>
           {!isEditing && !loading && (
             <div className="no-print" style={{ display: "flex", gap: 8 }}>
@@ -440,6 +476,17 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                       label: v.name,
                     }))}
                   />
+                  {row.vendor && row.vendor !== vendorId && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: COLORS_UI.accentDark,
+                        marginTop: 4,
+                      }}
+                    >
+                      Moving to another vendor's order for this date on save.
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -515,12 +562,12 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
             </div>
 
             <button
-              onClick={handleDeleteBatch}
+              onClick={handleDeleteOrder}
               style={dangerBtn}
-              disabled={deletingBatch}
+              disabled={deletingOrder}
             >
               <Trash2 size={16} />{" "}
-              {deletingBatch ? "Deleting…" : "Delete entire batch"}
+              {deletingOrder ? "Deleting…" : "Delete entire order"}
             </button>
           </>
         ) : (

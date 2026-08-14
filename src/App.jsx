@@ -10,7 +10,9 @@ function useTheme() {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("boxrate-theme");
     if (saved) return saved;
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
   });
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function App() {
   const [theme, setTheme] = useTheme();
   const [screen, setScreen] = useState("capture"); // capture | verify | vendors | dashboard | batchDetail
   const [extraction, setExtraction] = useState({ rows: null, vendor: null });
-  const [openBatchId, setOpenBatchId] = useState(null);
+  const [openOrder, setOpenOrder] = useState(null); // { vendorId, batchDate } | null
 
   function handleExtracted(rows, vendor) {
     setExtraction({ rows, vendor });
@@ -38,7 +40,8 @@ export default function App() {
   } else if (screen === "batchDetail") {
     body = (
       <BatchDetail
-        batchId={openBatchId}
+        vendorId={openOrder?.vendorId}
+        batchDate={openOrder?.batchDate}
         onBack={() => setScreen("dashboard")}
         onDeleted={() => setScreen("dashboard")}
       />
@@ -47,8 +50,8 @@ export default function App() {
     body = (
       <Dashboard
         onBack={() => setScreen("capture")}
-        onOpenBatch={(id) => {
-          setOpenBatchId(id);
+        onOpenBatch={(vendorId, batchDate) => {
+          setOpenOrder({ vendorId, batchDate });
           setScreen("batchDetail");
         }}
       />
@@ -135,7 +138,9 @@ function NavBtn({ icon, label, active, onClick }) {
       }}
     >
       {icon}
-      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3 }}>{label}</span>
+      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3 }}>
+        {label}
+      </span>
     </button>
   );
 }
