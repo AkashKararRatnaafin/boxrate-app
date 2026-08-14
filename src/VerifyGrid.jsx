@@ -24,7 +24,19 @@ import {
 
 function vendorRate(vendors, vendorId, fallback) {
   const v = vendors.find((v) => v.id === vendorId);
-  if (v && v.default_rate !== null && v.default_rate !== undefined) return v.default_rate;
+  if (v && v.default_rate !== null && v.default_rate !== undefined)
+    return v.default_rate;
+  return fallback;
+}
+
+function vendorAcrylicRate(vendors, vendorId, fallback) {
+  const v = vendors.find((v) => v.id === vendorId);
+  if (
+    v &&
+    v.default_acrylic_rate !== null &&
+    v.default_acrylic_rate !== undefined
+  )
+    return v.default_acrylic_rate;
   return fallback;
 }
 
@@ -47,14 +59,20 @@ function makeRow(id, defaults) {
 // initialRows (optional): raw extracted rows from the photo scan, shape:
 // { height, length, width, qty, has_acrylic, color }
 // initialVendor: vendor id (uuid) chosen on the capture screen
-export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved }) {
+export default function VerifyGrid({
+  initialRows,
+  initialVendor,
+  onBack,
+  onSaved,
+}) {
   const [vendors, setVendors] = useState([]);
   const [batchVendor, setBatchVendor] = useState(initialVendor || "");
   const [batchDate, setBatchDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10),
   );
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [saveError, setSaveError] = useState("");
+  const [existingOrder, setExistingOrder] = useState(null); // { box_count, total_price } | null
   const nextId = useRef(0);
   const lastRates = useRef({ rate: 2.5, acrylicRate: 0.6 });
 
@@ -65,6 +83,29 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Whenever the vendor or date for this batch changes, check whether an
+  // order already exists for that exact combo — if so these boxes will be
+  // added to it rather than starting a new one, so let the user know upfront.
+  useEffect(() => {
+    if (!batchVendor || !batchDate) {
+      setExistingOrder(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("batch_summary")
+      .select("box_count, total_price")
+      .eq("vendor_id", batchVendor)
+      .eq("batch_date", batchDate)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setExistingOrder(data || null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [batchVendor, batchDate]);
 
   const [rows, setRows] = useState(() => {
     if (initialRows && initialRows.length > 0) {
@@ -105,12 +146,24 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       rs.map((r) => {
         const targetVendor = r.vendor || batchVendor;
         const rate = vendorRate(vendors, targetVendor, r.rate);
-        return { ...r, vendor: r.vendor || batchVendor, rate };
-      })
+        const acrylicRate = vendorAcrylicRate(
+          vendors,
+          targetVendor,
+          r.acrylicRate,
+        );
+        return { ...r, vendor: r.vendor || batchVendor, rate, acrylicRate };
+      }),
     );
     const v = vendors.find((v) => v.id === batchVendor);
     if (v && v.default_rate !== null && v.default_rate !== undefined) {
       lastRates.current.rate = v.default_rate;
+    }
+    if (
+      v &&
+      v.default_acrylic_rate !== null &&
+      v.default_acrylic_rate !== undefined
+    ) {
+      lastRates.current.acrylicRate = v.default_acrylic_rate;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors, batchVendor]);
@@ -122,19 +175,29 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       lastRates.current.acrylicRate = patch.acrylicRate;
   };
 
-  // Changing a row's own vendor is a deliberate override — snap the rate to
-  // that vendor's default (if it has one) so the "pick vendor, rate follows" flow works per-row too.
+  // Changing a row's own vendor is a deliberate override — snap both rates to
+  // that vendor's defaults (if set) so the "pick vendor, rates follow" flow works per-row too.
   const changeRowVendor = (id, vendorId) => {
     const rate = vendorRate(vendors, vendorId, lastRates.current.rate);
-    updateRow(id, { vendor: vendorId, rate });
+    const acrylicRate = vendorAcrylicRate(
+      vendors,
+      vendorId,
+      lastRates.current.acrylicRate,
+    );
+    updateRow(id, { vendor: vendorId, rate, acrylicRate });
   };
 
   const addRow = () => {
     const id = nextId.current++;
     const rate = vendorRate(vendors, batchVendor, lastRates.current.rate);
+    const acrylicRate = vendorAcrylicRate(
+      vendors,
+      batchVendor,
+      lastRates.current.acrylicRate,
+    );
     setRows((rs) => [
       ...rs,
-      makeRow(id, { vendor: batchVendor, rate, acrylicRate: lastRates.current.acrylicRate }),
+      makeRow(id, { vendor: batchVendor, rate, acrylicRate }),
     ]);
   };
 
@@ -151,17 +214,34 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     setSaveState("saving");
     setSaveError("");
     try {
-      const { data: batch, error: batchErr } = await supabase
+      // Same vendor + same date = same order. If boxes were already scanned/saved
+      // for this vendor today, add these new boxes to that batch instead of
+      // creating a duplicate one.
+      const { data: existing, error: findErr } = await supabase
         .from("batches")
-        .insert({ vendor_id: batchVendor, batch_date: batchDate })
         .select("id")
-        .single();
-      if (batchErr) throw batchErr;
+        .eq("vendor_id", batchVendor)
+        .eq("batch_date", batchDate)
+        .maybeSingle();
+      if (findErr) throw findErr;
+
+      let batchId;
+      if (existing) {
+        batchId = existing.id;
+      } else {
+        const { data: batch, error: batchErr } = await supabase
+          .from("batches")
+          .insert({ vendor_id: batchVendor, batch_date: batchDate })
+          .select("id")
+          .single();
+        if (batchErr) throw batchErr;
+        batchId = batch.id;
+      }
 
       const itemsPayload = rows.map((r) => {
         const price = computePrice(r);
         return {
-          batch_id: batch.id,
+          batch_id: batchId,
           vendor_id: r.vendor || batchVendor,
           height: num(r.height),
           length: num(r.length),
@@ -177,7 +257,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
         };
       });
 
-      const { error: itemsErr } = await supabase.from("box_items").insert(itemsPayload);
+      const { error: itemsErr } = await supabase
+        .from("box_items")
+        .insert(itemsPayload);
       if (itemsErr) throw itemsErr;
 
       setSaveState("saved");
@@ -185,7 +267,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     } catch (err) {
       console.error(err);
       setSaveState("error");
-      setSaveError(err.message || "Couldn't save. Check your connection and try again.");
+      setSaveError(
+        err.message || "Couldn't save. Check your connection and try again.",
+      );
     }
   }
 
@@ -196,7 +280,7 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       acc.amount += p.total;
       return acc;
     },
-    { boxes: 0, amount: 0 }
+    { boxes: 0, amount: 0 },
   );
 
   return (
@@ -238,6 +322,23 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
           </div>
         </div>
 
+        {existingOrder && (
+          <div
+            style={{
+              ...cardStyle,
+              background: "rgba(76,107,76,0.14)",
+              border: "1px solid var(--ok)",
+              fontSize: 12.5,
+              color: COLORS_UI.ink,
+            }}
+          >
+            <b>Adding to an existing order.</b> This vendor already has{" "}
+            <b>{existingOrder.box_count} boxes</b> (
+            {fmt(existingOrder.total_price)}) saved for {batchDate}. The boxes
+            below will be added to that same order, not a new one.
+          </div>
+        )}
+
         {rows.map((row, idx) => {
           const price = computePrice(row);
           return (
@@ -261,7 +362,13 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                 >
                   BOX {idx + 1}
                   {row.description && (
-                    <span style={{ color: COLORS_UI.ink, fontWeight: 600, marginLeft: 6 }}>
+                    <span
+                      style={{
+                        color: COLORS_UI.ink,
+                        fontWeight: 600,
+                        marginLeft: 6,
+                      }}
+                    >
                       — {row.description}
                     </span>
                   )}
@@ -272,7 +379,10 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                   style={{
                     background: "none",
                     border: "none",
-                    color: rows.length === 1 ? "rgba(28,28,30,0.25)" : COLORS_UI.accent,
+                    color:
+                      rows.length === 1
+                        ? "rgba(28,28,30,0.25)"
+                        : COLORS_UI.accent,
                     cursor: rows.length === 1 ? "default" : "pointer",
                     padding: 4,
                     display: "flex",
@@ -345,7 +455,9 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                     boxSizing: "border-box",
                   }}
                 >
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    Acrylic
+                  </span>
                   <Toggle
                     checked={row.hasAcrylic}
                     onChange={(v) => updateRow(row.id, { hasAcrylic: v })}
@@ -397,7 +509,13 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
                 <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
                   {fmt(price.unit)} &times; {num(row.qty)}
                 </span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: COLORS_UI.accentDark }}>
+                <span
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: COLORS_UI.accentDark,
+                  }}
+                >
                   {fmt(price.total)}
                 </span>
               </div>
@@ -431,20 +549,31 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
       {/* Sticky glass total bar */}
       <div style={stickyBar}>
         <div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", letterSpacing: 1 }}>
+          <div
+            style={{
+              fontSize: 11,
+              color: "rgba(255,255,255,0.75)",
+              letterSpacing: 1,
+            }}
+          >
             {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
             {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>
+          <div
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#fff",
+            }}
+          >
             {fmt(totals.amount)}
           </div>
         </div>
         <button
           style={{
             background:
-              saveState === "saved"
-                ? "var(--ok-grad)"
-                : "var(--accent-grad)",
+              saveState === "saved" ? "var(--ok-grad)" : "var(--accent-grad)",
             color: "#fff",
             border: "none",
             borderRadius: 14,
@@ -495,10 +624,6 @@ export default function VerifyGrid({ initialRows, initialVendor, onBack, onSaved
     </div>
   );
 }
-
-
-
-
 
 const stickyBar = {
   position: "fixed",

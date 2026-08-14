@@ -7,28 +7,38 @@ export const COLORS = ["Blue", "Maroon", "Red"];
 export async function fetchVendors() {
   const { data, error } = await supabase
     .from("vendors")
-    .select("id, name, default_rate")
+    .select("id, name, default_rate, default_acrylic_rate")
     .order("name");
   if (error) throw error;
   return data;
 }
 
-export async function createVendor(name, defaultRate) {
+export async function createVendor(name, defaultRate, defaultAcrylicRate) {
   const { data, error } = await supabase
     .from("vendors")
-    .insert({ name: name.trim(), default_rate: defaultRate ?? null })
-    .select("id, name, default_rate")
+    .insert({
+      name: name.trim(),
+      default_rate: defaultRate ?? null,
+      default_acrylic_rate: defaultAcrylicRate ?? null,
+    })
+    .select("id, name, default_rate, default_acrylic_rate")
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateVendorRate(id, defaultRate) {
+export async function updateVendorRates(
+  id,
+  { defaultRate, defaultAcrylicRate },
+) {
   const { data, error } = await supabase
     .from("vendors")
-    .update({ default_rate: defaultRate })
+    .update({
+      default_rate: defaultRate,
+      default_acrylic_rate: defaultAcrylicRate,
+    })
     .eq("id", id)
-    .select("id, name, default_rate")
+    .select("id, name, default_rate, default_acrylic_rate")
     .single();
   if (error) throw error;
   return data;
@@ -46,7 +56,9 @@ export const num = (v) => {
 };
 
 export function computePrice(row) {
-  const h = num(row.height), l = num(row.length), w = num(row.width);
+  const h = num(row.height),
+    l = num(row.length),
+    w = num(row.width);
   const rate = num(row.rate);
   const acrylicRate = num(row.acrylicRate);
   const boxPrice = (h + w) * (l + w) * rate;
@@ -172,7 +184,12 @@ export function TextField({ label, value, onChange, placeholder }) {
 
 export function NumField({ label, value, onChange, disabled }) {
   return (
-    <div style={{ opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? "none" : "auto" }}>
+    <div
+      style={{
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
       <label style={labelStyle}>{label}</label>
       <input
         type="number"
@@ -187,7 +204,7 @@ export function NumField({ label, value, onChange, disabled }) {
 
 export function SelectField({ value, onChange, options }) {
   const normalized = options.map((o) =>
-    typeof o === "string" ? { value: o, label: o } : o
+    typeof o === "string" ? { value: o, label: o } : o,
   );
   return (
     <div style={{ position: "relative" }}>
@@ -226,7 +243,14 @@ export function SelectField({ value, onChange, options }) {
 
 export function Toggle({ checked, onChange }) {
   return (
-    <label style={{ position: "relative", width: 42, height: 24, display: "inline-block" }}>
+    <label
+      style={{
+        position: "relative",
+        width: 42,
+        height: 24,
+        display: "inline-block",
+      }}
+    >
       <input
         type="checkbox"
         checked={checked}

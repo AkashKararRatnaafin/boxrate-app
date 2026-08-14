@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Package, Pencil, Trash2, Plus, Printer, Check, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Package,
+  Pencil,
+  Trash2,
+  Plus,
+  Printer,
+  Check,
+  X,
+} from "lucide-react";
 import { supabase } from "./supabaseClient.js";
 import {
   fmt,
@@ -25,7 +34,19 @@ import {
 
 function vendorRate(vendors, vendorId, fallback) {
   const v = vendors.find((v) => v.id === vendorId);
-  if (v && v.default_rate !== null && v.default_rate !== undefined) return v.default_rate;
+  if (v && v.default_rate !== null && v.default_rate !== undefined)
+    return v.default_rate;
+  return fallback;
+}
+
+function vendorAcrylicRate(vendors, vendorId, fallback) {
+  const v = vendors.find((v) => v.id === vendorId);
+  if (
+    v &&
+    v.default_acrylic_rate !== null &&
+    v.default_acrylic_rate !== undefined
+  )
+    return v.default_acrylic_rate;
   return fallback;
 }
 
@@ -62,8 +83,16 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
     setError("");
     try {
       const [batchRes, itemsRes, vs] = await Promise.all([
-        supabase.from("batches").select("id, batch_date, vendor_id, vendors(name)").eq("id", batchId).single(),
-        supabase.from("box_items").select("*").eq("batch_id", batchId).order("created_at"),
+        supabase
+          .from("batches")
+          .select("id, batch_date, vendor_id, vendors(name)")
+          .eq("id", batchId)
+          .single(),
+        supabase
+          .from("box_items")
+          .select("*")
+          .eq("batch_id", batchId)
+          .order("created_at"),
         fetchVendors(),
       ]);
       if (batchRes.error) throw batchRes.error;
@@ -98,13 +127,20 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
   }
 
   function changeRowVendor(id, vendorId) {
-    const rate = vendorRate(vendors, vendorId, editRows.find((r) => r.id === id)?.rate);
-    updateEditRow(id, { vendor: vendorId, rate });
+    const current = editRows.find((r) => r.id === id);
+    const rate = vendorRate(vendors, vendorId, current?.rate);
+    const acrylicRate = vendorAcrylicRate(
+      vendors,
+      vendorId,
+      current?.acrylicRate,
+    );
+    updateEditRow(id, { vendor: vendorId, rate, acrylicRate });
   }
 
   function addBlankRow() {
     const tempId = `new-${tempIdRef.current++}`;
     const rate = vendorRate(vendors, batch?.vendor_id, 2.5);
+    const acrylicRate = vendorAcrylicRate(vendors, batch?.vendor_id, 0.6);
     setEditRows((rs) => [
       ...rs,
       {
@@ -118,7 +154,7 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
         color: "Blue",
         vendor: batch?.vendor_id || "",
         rate,
-        acrylicRate: 0.6,
+        acrylicRate,
       },
     ]);
   }
@@ -166,7 +202,10 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
           const { error } = await supabase.from("box_items").insert(payload);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from("box_items").update(payload).eq("id", row.id);
+          const { error } = await supabase
+            .from("box_items")
+            .update(payload)
+            .eq("id", row.id);
           if (error) throw error;
         }
       }
@@ -181,10 +220,18 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
   }
 
   async function handleDeleteBatch() {
-    if (!window.confirm("Delete this entire batch and all its boxes? This can't be undone.")) return;
+    if (
+      !window.confirm(
+        "Delete this entire batch and all its boxes? This can't be undone.",
+      )
+    )
+      return;
     setDeletingBatch(true);
     try {
-      const { error } = await supabase.from("batches").delete().eq("id", batchId);
+      const { error } = await supabase
+        .from("batches")
+        .delete()
+        .eq("id", batchId);
       if (error) throw error;
       onDeleted();
     } catch (err) {
@@ -209,7 +256,14 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
           </button>
         </div>
 
-        <div style={{ padding: "0 6px 18px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div
+          style={{
+            padding: "0 6px 18px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+          }}
+        >
           <div>
             <h1 style={titleStyle}>{batch?.vendors?.name || "Batch"}</h1>
             <p style={subtitleStyle}>{batch?.batch_date}</p>
@@ -227,13 +281,26 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
         </div>
 
         {error && (
-          <div style={{ ...cardStyle, border: `1.5px solid ${COLORS_UI.accent}`, fontSize: 13 }} className="no-print">
+          <div
+            style={{
+              ...cardStyle,
+              border: `1.5px solid ${COLORS_UI.accent}`,
+              fontSize: 13,
+            }}
+            className="no-print"
+          >
             {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ ...cardStyle, textAlign: "center", color: COLORS_UI.inkSoft }}>
+          <div
+            style={{
+              ...cardStyle,
+              textAlign: "center",
+              color: COLORS_UI.inkSoft,
+            }}
+          >
             Loading…
           </div>
         ) : isEditing ? (
@@ -259,25 +326,59 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                   >
                     BOX {idx + 1}
                     {row.description && (
-                      <span style={{ color: "var(--ink)", fontWeight: 600, marginLeft: 6 }}>
+                      <span
+                        style={{
+                          color: "var(--ink)",
+                          fontWeight: 600,
+                          marginLeft: 6,
+                        }}
+                      >
                         — {row.description}
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => deleteRow(row.id)}
-                    style={{ background: "none", border: "none", color: COLORS_UI.accent, cursor: "pointer" }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: COLORS_UI.accent,
+                      cursor: "pointer",
+                    }}
                     aria-label="Delete box"
                   >
                     <Trash2 size={17} />
                   </button>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 0.8fr", gap: 8, marginBottom: 10 }}>
-                  <NumField label="Height" value={row.height} onChange={(v) => updateEditRow(row.id, { height: v })} />
-                  <NumField label="Length" value={row.length} onChange={(v) => updateEditRow(row.id, { length: v })} />
-                  <NumField label="Width" value={row.width} onChange={(v) => updateEditRow(row.id, { width: v })} />
-                  <NumField label="Qty" value={row.qty} onChange={(v) => updateEditRow(row.id, { qty: v })} />
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr 0.8fr",
+                    gap: 8,
+                    marginBottom: 10,
+                  }}
+                >
+                  <NumField
+                    label="Height"
+                    value={row.height}
+                    onChange={(v) => updateEditRow(row.id, { height: v })}
+                  />
+                  <NumField
+                    label="Length"
+                    value={row.length}
+                    onChange={(v) => updateEditRow(row.id, { length: v })}
+                  />
+                  <NumField
+                    label="Width"
+                    value={row.width}
+                    onChange={(v) => updateEditRow(row.id, { width: v })}
+                  />
+                  <NumField
+                    label="Qty"
+                    value={row.qty}
+                    onChange={(v) => updateEditRow(row.id, { qty: v })}
+                  />
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -289,7 +390,14 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                   />
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "flex-end" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: 10,
+                    alignItems: "flex-end",
+                  }}
+                >
                   <div
                     style={{
                       flex: 1,
@@ -304,12 +412,21 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                       boxSizing: "border-box",
                     }}
                   >
-                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>Acrylic</span>
-                    <Toggle checked={row.hasAcrylic} onChange={(v) => updateEditRow(row.id, { hasAcrylic: v })} />
+                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                      Acrylic
+                    </span>
+                    <Toggle
+                      checked={row.hasAcrylic}
+                      onChange={(v) => updateEditRow(row.id, { hasAcrylic: v })}
+                    />
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Color</label>
-                    <SelectField value={row.color} onChange={(v) => updateEditRow(row.id, { color: v })} options={COLORS} />
+                    <SelectField
+                      value={row.color}
+                      onChange={(v) => updateEditRow(row.id, { color: v })}
+                      options={COLORS}
+                    />
                   </div>
                 </div>
 
@@ -318,12 +435,19 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                   <SelectField
                     value={row.vendor}
                     onChange={(v) => changeRowVendor(row.id, v)}
-                    options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+                    options={vendors.map((v) => ({
+                      value: v.id,
+                      label: v.name,
+                    }))}
                   />
                 </div>
 
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <NumField label="Rate / sq.in" value={row.rate} onChange={(v) => updateEditRow(row.id, { rate: v })} />
+                  <NumField
+                    label="Rate / sq.in"
+                    value={row.rate}
+                    onChange={(v) => updateEditRow(row.id, { rate: v })}
+                  />
                   <NumField
                     label="Acrylic rate"
                     value={row.acrylicRate}
@@ -345,10 +469,14 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                     const p = computePrice(row);
                     return (
                       <>
-                        <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
+                        <span
+                          style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}
+                        >
                           {fmt(p.unit)} &times; {num(row.qty)}
                         </span>
-                        <span style={{ fontSize: 16, fontWeight: 700 }}>{fmt(p.total)}</span>
+                        <span style={{ fontSize: 16, fontWeight: 700 }}>
+                          {fmt(p.total)}
+                        </span>
                       </>
                     );
                   })()}
@@ -356,31 +484,69 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
               </div>
             ))}
 
-            <button onClick={addBlankRow} style={{ ...secondaryBtn, marginBottom: 12 }}>
+            <button
+              onClick={addBlankRow}
+              style={{ ...secondaryBtn, marginBottom: 12 }}
+            >
               <Plus size={17} /> Add box
             </button>
 
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              <button onClick={cancelEditing} style={{ ...secondaryBtn, flex: 1 }} disabled={saving}>
+              <button
+                onClick={cancelEditing}
+                style={{ ...secondaryBtn, flex: 1 }}
+                disabled={saving}
+              >
                 <X size={16} /> Cancel
               </button>
-              <button onClick={saveChanges} style={{ ...primaryBtn, flex: 1.4 }} disabled={saving}>
-                {saving ? "Saving…" : (<><Check size={16} /> Save changes</>)}
+              <button
+                onClick={saveChanges}
+                style={{ ...primaryBtn, flex: 1.4 }}
+                disabled={saving}
+              >
+                {saving ? (
+                  "Saving…"
+                ) : (
+                  <>
+                    <Check size={16} /> Save changes
+                  </>
+                )}
               </button>
             </div>
 
-            <button onClick={handleDeleteBatch} style={dangerBtn} disabled={deletingBatch}>
-              <Trash2 size={16} /> {deletingBatch ? "Deleting…" : "Delete entire batch"}
+            <button
+              onClick={handleDeleteBatch}
+              style={dangerBtn}
+              disabled={deletingBatch}
+            >
+              <Trash2 size={16} />{" "}
+              {deletingBatch ? "Deleting…" : "Delete entire batch"}
             </button>
           </>
         ) : (
           <>
-            <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                ...cardStyle,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Package size={16} color={COLORS_UI.inkSoft} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{boxCount} boxes</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  {boxCount} boxes
+                </span>
               </div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 19, fontWeight: 700, color: COLORS_UI.accentDark }}>
+              <div
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 19,
+                  fontWeight: 700,
+                  color: COLORS_UI.accentDark,
+                }}
+              >
                 {fmt(total)}
               </div>
             </div>
@@ -399,20 +565,29 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                 >
                   BOX {idx + 1}
                   {it.description && (
-                    <span style={{ color: COLORS_UI.ink, fontWeight: 600, marginLeft: 6, letterSpacing: 0 }}>
+                    <span
+                      style={{
+                        color: COLORS_UI.ink,
+                        fontWeight: 600,
+                        marginLeft: 6,
+                        letterSpacing: 0,
+                      }}
+                    >
                       — {it.description}
                     </span>
                   )}
                 </div>
                 <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
                   <div>
-                    <b>{it.height}</b>H &times; <b>{it.length}</b>L &times; <b>{it.width}</b>W in,
-                    qty <b>{it.qty}</b>
+                    <b>{it.height}</b>H &times; <b>{it.length}</b>L &times;{" "}
+                    <b>{it.width}</b>W in, qty <b>{it.qty}</b>
                   </div>
                   <div style={{ color: COLORS_UI.inkSoft, fontSize: 12.5 }}>
-                    {it.color || "—"} &middot; {it.has_acrylic ? "Acrylic" : "No acrylic"}
+                    {it.color || "—"} &middot;{" "}
+                    {it.has_acrylic ? "Acrylic" : "No acrylic"}
                     <span className="no-print">
-                      {it.has_acrylic && ` @ ${it.acrylic_rate}/sq.in`} &middot; Rate {it.rate}/sq.in
+                      {it.has_acrylic && ` @ ${it.acrylic_rate}/sq.in`} &middot;
+                      Rate {it.rate}/sq.in
                     </span>
                   </div>
                 </div>
@@ -429,7 +604,9 @@ export default function BatchDetail({ batchId, onBack, onDeleted }) {
                   <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
                     {fmt(it.unit_price)} &times; {it.qty}
                   </span>
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>{fmt(it.total_price)}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>
+                    {fmt(it.total_price)}
+                  </span>
                 </div>
               </div>
             ))}
