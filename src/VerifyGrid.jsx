@@ -94,7 +94,7 @@ export default function VerifyGrid({
     }
     let cancelled = false;
     supabase
-      .from("batch_summary")
+      .from("order_summary")
       .select("box_count, total_price")
       .eq("vendor_id", batchVendor)
       .eq("batch_date", batchDate)
@@ -137,7 +137,9 @@ export default function VerifyGrid({
 
   // Vendors load asynchronously, but rows (from a photo scan or manual add)
   // can already exist by the time they arrive — apply the vendor's default
-  // rate to those rows once, the first moment vendors are available.
+  // rate to those rows once, the first moment vendors are available. This
+  // never runs again after that, so it won't clobber a per-row vendor/rate
+  // the person deliberately changed afterward.
   const appliedInitialRate = useRef(false);
   useEffect(() => {
     if (vendors.length === 0 || appliedInitialRate.current) return;
@@ -175,8 +177,9 @@ export default function VerifyGrid({
       lastRates.current.acrylicRate = patch.acrylicRate;
   };
 
-  // Changing a row's own vendor is a deliberate override — snap both rates to
-  // that vendor's defaults (if set) so the "pick vendor, rates follow" flow works per-row too.
+  // Changing a row's own vendor is a deliberate per-box override — snap both
+  // rates to that vendor's defaults (if set) so "pick vendor, rates follow"
+  // works per box too, same as it does at the batch level.
   const changeRowVendor = (id, vendorId) => {
     const rate = vendorRate(vendors, vendorId, lastRates.current.rate);
     const acrylicRate = vendorAcrylicRate(
@@ -206,22 +209,26 @@ export default function VerifyGrid({
   };
 
   async function handleSave() {
-    if (!batchVendor) {
-      setSaveError("Pick a vendor for this batch first.");
+    const missingVendor = rows.some((r) => !(r.vendor || batchVendor));
+    if (missingVendor) {
+      setSaveError(
+        "Every box needs a vendor — pick one for the batch, or per box.",
+      );
       setSaveState("error");
       return;
     }
     setSaveState("saving");
     setSaveError("");
     try {
-      // Same vendor + same date = same order. If boxes were already scanned/saved
-      // for this vendor today, add these new boxes to that batch instead of
-      // creating a duplicate one.
+      // The "batches" row is just a technical container for this scan session —
+      // it no longer determines vendor grouping (each box carries its own
+      // vendor_id + batch_date for that). Reuse a container for the same date
+      // if one exists, so we don't pile up empty rows unnecessarily.
       const { data: existing, error: findErr } = await supabase
         .from("batches")
         .select("id")
-        .eq("vendor_id", batchVendor)
         .eq("batch_date", batchDate)
+        .limit(1)
         .maybeSingle();
       if (findErr) throw findErr;
 
@@ -243,6 +250,7 @@ export default function VerifyGrid({
         return {
           batch_id: batchId,
           vendor_id: r.vendor || batchVendor,
+          batch_date: batchDate,
           height: num(r.height),
           length: num(r.length),
           width: num(r.width),
@@ -557,7 +565,18 @@ export default function VerifyGrid({
             }}
           >
             {totals.boxes} box{totals.boxes === 1 ? "" : "es"} &middot;{" "}
-            {vendors.find((v) => v.id === batchVendor)?.name || "no vendor"}
+            {(() => {
+              const distinctVendors = [
+                ...new Set(rows.map((r) => r.vendor || batchVendor)),
+              ];
+              if (distinctVendors.length === 1) {
+                return (
+                  vendors.find((v) => v.id === distinctVendors[0])?.name ||
+                  "no vendor"
+                );
+              }
+              return `${distinctVendors.length} vendors`;
+            })()}
           </div>
           <div
             style={{
