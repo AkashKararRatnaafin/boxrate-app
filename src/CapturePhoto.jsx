@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, Image as ImageIcon, ArrowRight, AlertCircle, Store } from "lucide-react";
+import {
+  Camera,
+  Image as ImageIcon,
+  ArrowRight,
+  AlertCircle,
+  Store,
+} from "lucide-react";
 import { supabase } from "./supabaseClient.js";
 import {
   fetchVendors,
@@ -27,7 +33,8 @@ function fileToBase64(file) {
   });
 }
 
-// onExtracted(rows, vendorId) — rows are raw extraction objects, or null to skip straight to manual entry
+// onExtracted(boxes, manualVendorId, detectedVendorName, detectedDate, writtenTotal)
+// boxes is null when skipping straight to manual entry.
 export default function CapturePhoto({ onExtracted, onManageVendors }) {
   const [vendors, setVendors] = useState([]);
   const [vendorsLoading, setVendorsLoading] = useState(true);
@@ -40,10 +47,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
 
   useEffect(() => {
     fetchVendors()
-      .then((vs) => {
-        setVendors(vs);
-        if (vs.length > 0) setVendor(vs[0].id);
-      })
+      .then((vs) => setVendors(vs))
       .catch((err) => setErrorMsg("Couldn't load vendors: " + err.message))
       .finally(() => setVendorsLoading(false));
   }, []);
@@ -73,12 +77,18 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         throw new Error(detail);
       }
       if (data?.error) throw new Error(data.error);
-      if (!data?.rows || data.rows.length === 0) {
+      if (!data?.boxes || data.boxes.length === 0) {
         throw new Error("No boxes were found in that photo.");
       }
 
       setStatus("idle");
-      onExtracted(data.rows, vendor);
+      onExtracted(
+        data.boxes,
+        vendor,
+        data.vendor_name,
+        data.date,
+        data.written_total,
+      );
     } catch (err) {
       console.error(err);
       setStatus("error");
@@ -86,7 +96,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
       setErrorMsg(
         known
           ? err.message
-          : `Couldn't read that photo (${err.message || "unknown error"}). Try a clearer, well-lit shot, or enter the boxes manually.`
+          : `Couldn't read that photo (${err.message || "unknown error"}). Try a clearer, well-lit shot, or enter the boxes manually.`,
       );
     }
   }
@@ -100,9 +110,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         </div>
 
         <div style={cardStyle}>
-          <label style={labelStyle}>Vendor for this batch</label>
+          <label style={labelStyle}>Vendor</label>
           {vendorsLoading ? (
-            <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>Loading vendors…</div>
+            <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
+              Loading vendors…
+            </div>
           ) : vendors.length === 0 ? (
             <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
               No vendors yet.{" "}
@@ -116,8 +128,18 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
               <SelectField
                 value={vendor}
                 onChange={setVendor}
-                options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+                options={[
+                  { value: "", label: "Auto-detect from photo" },
+                  ...vendors.map((v) => ({ value: v.id, label: v.name })),
+                ]}
               />
+              <div
+                style={{ fontSize: 11, color: COLORS_UI.inkSoft, marginTop: 6 }}
+              >
+                Leave on auto-detect and we'll read the vendor name off the
+                page. Pick one manually only if this page doesn't repeat the
+                vendor heading.
+              </div>
               <button onClick={onManageVendors} style={manageLink}>
                 <Store size={12} /> Manage vendors
               </button>
@@ -126,7 +148,14 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
         </div>
 
         {previewUrl && (
-          <div style={{ ...cardStyle, padding: 8, position: "relative", overflow: "hidden" }}>
+          <div
+            style={{
+              ...cardStyle,
+              padding: 8,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
             <img
               src={previewUrl}
               alt="Selected sheet"
@@ -211,7 +240,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
               border: `1.5px solid ${COLORS_UI.accent}`,
             }}
           >
-            <AlertCircle size={18} color={COLORS_UI.accent} style={{ flexShrink: 0, marginTop: 2 }} />
+            <AlertCircle
+              size={18}
+              color={COLORS_UI.accent}
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
             <div style={{ fontSize: 13, color: COLORS_UI.ink }}>{errorMsg}</div>
           </div>
         )}
@@ -237,7 +270,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
             <button
               onClick={() => cameraInputRef.current?.click()}
               disabled={!vendor}
-              style={{ ...primaryBtn, opacity: vendor ? 1 : 0.5, marginBottom: 10 }}
+              style={{
+                ...primaryBtn,
+                opacity: vendor ? 1 : 0.5,
+                marginBottom: 10,
+              }}
             >
               <Camera size={19} /> Take photo
             </button>
@@ -245,7 +282,11 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
             <button
               onClick={() => galleryInputRef.current?.click()}
               disabled={!vendor}
-              style={{ ...secondaryBtn, opacity: vendor ? 1 : 0.5, marginBottom: 14 }}
+              style={{
+                ...secondaryBtn,
+                opacity: vendor ? 1 : 0.5,
+                marginBottom: 14,
+              }}
             >
               <ImageIcon size={17} /> Choose from gallery
             </button>
@@ -263,8 +304,6 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
     </div>
   );
 }
-
-
 
 const linkBtn = {
   background: "none",

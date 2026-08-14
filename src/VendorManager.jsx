@@ -4,7 +4,7 @@ import {
   fetchVendors,
   createVendor,
   deleteVendor,
-  updateVendorRate,
+  updateVendorRates,
   pageStyle,
   cardStyle,
   inputStyle,
@@ -21,9 +21,10 @@ export default function VendorManager({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newRate, setNewRate] = useState("");
+  const [newAcrylicRate, setNewAcrylicRate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [editingRates, setEditingRates] = useState({}); // vendorId -> draft string
+  const [editingRates, setEditingRates] = useState({}); // vendorId -> { rate, acrylicRate } draft
   const [savedFlash, setSavedFlash] = useState(null); // vendorId briefly shown as saved
 
   async function load() {
@@ -47,15 +48,22 @@ export default function VendorManager({ onBack }) {
     setSaving(true);
     setError("");
     try {
-      const v = await createVendor(name, newRate === "" ? null : parseFloat(newRate));
-      setVendors((vs) => [...vs, v].sort((a, b) => a.name.localeCompare(b.name)));
+      const v = await createVendor(
+        name,
+        newRate === "" ? null : parseFloat(newRate),
+        newAcrylicRate === "" ? null : parseFloat(newAcrylicRate),
+      );
+      setVendors((vs) =>
+        [...vs, v].sort((a, b) => a.name.localeCompare(b.name)),
+      );
       setNewName("");
       setNewRate("");
+      setNewAcrylicRate("");
     } catch (err) {
       setError(
         err.message?.includes("duplicate")
           ? "That vendor already exists."
-          : "Couldn't add vendor: " + err.message
+          : "Couldn't add vendor: " + err.message,
       );
     } finally {
       setSaving(false);
@@ -71,16 +79,38 @@ export default function VendorManager({ onBack }) {
     }
   }
 
+  function draftFor(v) {
+    return (
+      editingRates[v.id] ?? {
+        rate: v.default_rate ?? "",
+        acrylicRate: v.default_acrylic_rate ?? "",
+      }
+    );
+  }
+
+  function isDirty(v) {
+    const d = draftFor(v);
+    return (
+      String(d.rate) !== String(v.default_rate ?? "") ||
+      String(d.acrylicRate) !== String(v.default_acrylic_rate ?? "")
+    );
+  }
+
   async function handleRateSave(id) {
-    const draft = editingRates[id];
-    const rate = draft === "" || draft === undefined ? null : parseFloat(draft);
+    const v = vendors.find((v) => v.id === id);
+    const d = draftFor(v);
+    const rate = d.rate === "" ? null : parseFloat(d.rate);
+    const acrylicRate = d.acrylicRate === "" ? null : parseFloat(d.acrylicRate);
     try {
-      const updated = await updateVendorRate(id, rate);
+      const updated = await updateVendorRates(id, {
+        defaultRate: rate,
+        defaultAcrylicRate: acrylicRate,
+      });
       setVendors((vs) => vs.map((v) => (v.id === id ? updated : v)));
       setSavedFlash(id);
       setTimeout(() => setSavedFlash(null), 1000);
     } catch (err) {
-      setError("Couldn't update rate: " + err.message);
+      setError("Couldn't update rates: " + err.message);
     }
   }
 
@@ -105,45 +135,76 @@ export default function VendorManager({ onBack }) {
             placeholder="Vendor name"
             style={{ ...inputStyle, marginBottom: 8 }}
           />
-          <label style={labelStyle}>Default rate / sq.in (optional)</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={newRate}
-              onChange={(e) => setNewRate(e.target.value)}
-              placeholder="e.g. 2"
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <button
-              onClick={handleAdd}
-              disabled={saving || !newName.trim()}
-              style={{ ...primaryBtn, width: 52, padding: 0, borderRadius: 12 }}
-            >
-              <Plus size={19} />
-            </button>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Default rate / sq.in</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={newRate}
+                onChange={(e) => setNewRate(e.target.value)}
+                placeholder="e.g. 2"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Default acrylic rate</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={newAcrylicRate}
+                onChange={(e) => setNewAcrylicRate(e.target.value)}
+                placeholder="e.g. 0.6"
+                style={inputStyle}
+              />
+            </div>
           </div>
+          <button
+            onClick={handleAdd}
+            disabled={saving || !newName.trim()}
+            style={primaryBtn}
+          >
+            <Plus size={18} /> Add vendor
+          </button>
         </div>
 
         {error && (
-          <div style={{ ...cardStyle, border: `1.5px solid ${COLORS_UI.accent}`, fontSize: 13 }}>
+          <div
+            style={{
+              ...cardStyle,
+              border: `1.5px solid ${COLORS_UI.accent}`,
+              fontSize: 13,
+            }}
+          >
             {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ ...cardStyle, textAlign: "center", color: COLORS_UI.inkSoft }}>
+          <div
+            style={{
+              ...cardStyle,
+              textAlign: "center",
+              color: COLORS_UI.inkSoft,
+            }}
+          >
             Loading…
           </div>
         ) : vendors.length === 0 ? (
-          <div style={{ ...cardStyle, textAlign: "center", color: COLORS_UI.inkSoft }}>
+          <div
+            style={{
+              ...cardStyle,
+              textAlign: "center",
+              color: COLORS_UI.inkSoft,
+            }}
+          >
             <Store size={22} style={{ marginBottom: 6 }} />
             <div>No vendors yet. Add your first one above.</div>
           </div>
         ) : (
           vendors.map((v) => {
-            const draft = editingRates[v.id] ?? (v.default_rate ?? "");
-            const dirty = String(draft) !== String(v.default_rate ?? "");
+            const draft = draftFor(v);
+            const dirty = isDirty(v);
             return (
               <div key={v.id} style={{ ...cardStyle, padding: "13px 16px" }}>
                 <div
@@ -154,50 +215,81 @@ export default function VendorManager({ onBack }) {
                     marginBottom: 10,
                   }}
                 >
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>{v.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>
+                    {v.name}
+                  </span>
                   <button
                     onClick={() => handleDelete(v.id)}
-                    style={{ background: "none", border: "none", color: COLORS_UI.accent, cursor: "pointer" }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: COLORS_UI.accent,
+                      cursor: "pointer",
+                    }}
                     aria-label={`Delete ${v.name}`}
                   >
                     <Trash2 size={17} />
                   </button>
                 </div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: dirty || savedFlash === v.id ? 8 : 0,
+                  }}
+                >
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Default rate / sq.in</label>
                     <input
                       type="number"
                       inputMode="decimal"
-                      value={draft}
+                      value={draft.rate}
                       onChange={(e) =>
-                        setEditingRates((r) => ({ ...r, [v.id]: e.target.value }))
+                        setEditingRates((r) => ({
+                          ...r,
+                          [v.id]: { ...draft, rate: e.target.value },
+                        }))
                       }
                       placeholder="not set"
                       style={inputStyle}
                     />
                   </div>
-                  {dirty && (
-                    <button
-                      onClick={() => handleRateSave(v.id)}
-                      style={{
-                        ...primaryBtn,
-                        width: 42,
-                        height: 38,
-                        padding: 0,
-                        borderRadius: 10,
-                      }}
-                      aria-label="Save rate"
-                    >
-                      <Check size={17} />
-                    </button>
-                  )}
-                  {savedFlash === v.id && !dirty && (
-                    <span style={{ fontSize: 11, color: COLORS_UI.ok, fontWeight: 700, paddingBottom: 10 }}>
-                      saved
-                    </span>
-                  )}
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>Default acrylic rate</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={draft.acrylicRate}
+                      onChange={(e) =>
+                        setEditingRates((r) => ({
+                          ...r,
+                          [v.id]: { ...draft, acrylicRate: e.target.value },
+                        }))
+                      }
+                      placeholder="not set"
+                      style={inputStyle}
+                    />
+                  </div>
                 </div>
+                {dirty && (
+                  <button
+                    onClick={() => handleRateSave(v.id)}
+                    style={{ ...primaryBtn, padding: "10px" }}
+                  >
+                    <Check size={16} /> Save rates
+                  </button>
+                )}
+                {savedFlash === v.id && !dirty && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: COLORS_UI.ok,
+                      fontWeight: 700,
+                    }}
+                  >
+                    saved
+                  </span>
+                )}
               </div>
             );
           })
@@ -206,6 +298,3 @@ export default function VendorManager({ onBack }) {
     </div>
   );
 }
-
-
-
