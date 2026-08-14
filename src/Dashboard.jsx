@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { ArrowLeft, TrendingUp, Calendar, BarChart3 } from "lucide-react";
 import {
-  ArrowLeft,
-  Package,
-  TrendingUp,
-  Calendar,
-  ChevronRight,
-  Trash2,
-} from "lucide-react";
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 import { supabase } from "./supabaseClient.js";
 import {
   fmt,
@@ -23,10 +25,9 @@ import {
   sectionLabelStyle,
 } from "./shared.jsx";
 
-export default function Dashboard({ onBack, onOpenBatch }) {
+export default function Dashboard({ onBack }) {
   const [vendors, setVendors] = useState([]);
-  const [vendorSummary, setVendorSummary] = useState([]);
-  const [batches, setBatches] = useState([]);
+  const [orders, setOrders] = useState([]); // rows from order_summary (per vendor+date)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [vendorFilter, setVendorFilter] = useState("all");
@@ -37,22 +38,13 @@ export default function Dashboard({ onBack, onOpenBatch }) {
     setLoading(true);
     setError("");
     try {
-      const [vs, summaryRes, batchesRes] = await Promise.all([
+      const [vs, ordersRes] = await Promise.all([
         fetchVendors(),
-        supabase
-          .from("vendor_sales_summary")
-          .select("*")
-          .order("total_sales", { ascending: false }),
-        supabase
-          .from("order_summary")
-          .select("*")
-          .order("batch_date", { ascending: false }),
+        supabase.from("order_summary").select("*"),
       ]);
-      if (summaryRes.error) throw summaryRes.error;
-      if (batchesRes.error) throw batchesRes.error;
+      if (ordersRes.error) throw ordersRes.error;
       setVendors(vs);
-      setVendorSummary(summaryRes.data);
-      setBatches(batchesRes.data);
+      setOrders(ordersRes.data);
     } catch (err) {
       setError(err.message || "Couldn't load dashboard data.");
     } finally {
@@ -64,43 +56,47 @@ export default function Dashboard({ onBack, onOpenBatch }) {
     load();
   }, []);
 
-  async function handleDeleteOrder(vendorId, batchDate) {
-    if (
-      !window.confirm(
-        "Delete this order and all its boxes? This can't be undone.",
-      )
-    )
-      return;
-    setError("");
-    try {
-      const { error } = await supabase
-        .from("box_items")
-        .delete()
-        .eq("vendor_id", vendorId)
-        .eq("batch_date", batchDate);
-      if (error) throw error;
-      await load();
-    } catch (err) {
-      setError("Couldn't delete order: " + err.message);
-    }
-  }
-
-  const filteredBatches = useMemo(() => {
-    return batches.filter((b) => {
-      if (vendorFilter !== "all" && b.vendor_id !== vendorFilter) return false;
-      if (fromDate && b.batch_date < fromDate) return false;
-      if (toDate && b.batch_date > toDate) return false;
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (vendorFilter !== "all" && o.vendor_id !== vendorFilter) return false;
+      if (fromDate && o.batch_date < fromDate) return false;
+      if (toDate && o.batch_date > toDate) return false;
       return true;
     });
-  }, [batches, vendorFilter, fromDate, toDate]);
+  }, [orders, vendorFilter, fromDate, toDate]);
 
-  const filteredTotals = filteredBatches.reduce(
-    (acc, b) => {
-      acc.boxes += Number(b.box_count) || 0;
-      acc.amount += Number(b.total_price) || 0;
-      return acc;
-    },
-    { boxes: 0, amount: 0 },
+  // Totals by vendor — respects the filter above, unlike a static all-time view.
+  const vendorTotals = useMemo(() => {
+    const map = new Map();
+    for (const o of filteredOrders) {
+      const key = o.vendor_id;
+      const entry = map.get(key) || {
+        vendor_id: o.vendor_id,
+        vendor_name: o.vendor_name || "Unknown vendor",
+        order_count: 0,
+        total_boxes: 0,
+        total_sales: 0,
+      };
+      entry.order_count += 1;
+      entry.total_boxes += Number(o.box_count) || 0;
+      entry.total_sales += Number(o.total_price) || 0;
+      map.set(key, entry);
+    }
+    return [...map.values()].sort((a, b) => b.total_sales - a.total_sales);
+  }, [filteredOrders]);
+
+  const chartData = useMemo(
+    () =>
+      vendorTotals.map((v) => ({
+        name:
+          v.vendor_name.length > 10
+            ? v.vendor_name.slice(0, 9) + "…"
+            : v.vendor_name,
+        fullName: v.vendor_name,
+        boxes: v.total_boxes,
+        amount: Math.round(v.total_sales),
+      })),
+    [vendorTotals],
   );
 
   return (
@@ -144,12 +140,12 @@ export default function Dashboard({ onBack, onOpenBatch }) {
               <div style={sectionLabelStyle}>
                 <TrendingUp size={13} /> Totals by vendor
               </div>
-              {vendorSummary.length === 0 ? (
+              {vendorTotals.length === 0 ? (
                 <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
-                  No sales yet.
+                  No orders match this filter.
                 </div>
               ) : (
-                vendorSummary.map((v) => (
+                vendorTotals.map((v) => (
                   <div
                     key={v.vendor_id}
                     style={{
@@ -186,7 +182,7 @@ export default function Dashboard({ onBack, onOpenBatch }) {
 
             <div style={cardStyle}>
               <div style={sectionLabelStyle}>
-                <Calendar size={13} /> Filter orders
+                <Calendar size={13} /> Filter
               </div>
               <div style={{ marginBottom: 10 }}>
                 <label style={labelStyle}>Vendor</label>
@@ -223,123 +219,96 @@ export default function Dashboard({ onBack, onOpenBatch }) {
 
             <div style={cardStyle}>
               <div style={sectionLabelStyle}>
-                <Package size={13} /> Order history
+                <BarChart3 size={13} /> Boxes &amp; sales by vendor
               </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: COLORS_UI.inkSoft,
-                  marginTop: -6,
-                  marginBottom: 8,
-                }}
-              >
-                Tap an order to see every box in it.
-              </div>
-              {filteredBatches.length === 0 ? (
+              {chartData.length === 0 ? (
                 <div style={{ fontSize: 13, color: COLORS_UI.inkSoft }}>
                   No orders match this filter.
                 </div>
               ) : (
-                <>
-                  {filteredBatches.map((b) => (
-                    <div
-                      key={`${b.vendor_id}-${b.batch_date}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "10px 0",
-                        borderTop: "1px dashed rgba(28,28,30,0.14)",
-                      }}
+                <div style={{ width: "100%", height: 240 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
                     >
-                      <button
-                        onClick={() => onOpenBatch(b.vendor_id, b.batch_date)}
-                        style={{
-                          flex: 1,
-                          background: "none",
-                          border: "none",
-                          textAlign: "left",
-                          cursor: "pointer",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: 0,
-                          minWidth: 0,
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: 13.5,
-                              color: COLORS_UI.ink,
-                            }}
-                          >
-                            {b.vendor_name || "Unknown vendor"}
-                          </div>
-                          <div
-                            style={{ fontSize: 11, color: COLORS_UI.inkSoft }}
-                          >
-                            {b.batch_date} &middot; {b.box_count} boxes
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontFamily: "'DM Mono', monospace",
-                              fontSize: 14.5,
-                              fontWeight: 700,
-                              color: COLORS_UI.ink,
-                            }}
-                          >
-                            {fmt(b.total_price)}
-                          </div>
-                          <ChevronRight size={15} color={COLORS_UI.inkSoft} />
-                        </div>
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleDeleteOrder(b.vendor_id, b.batch_date)
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(28,28,30,0.1)"
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
+                        axisLine={{ stroke: "rgba(28,28,30,0.15)" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={30}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={38}
+                      />
+                      <Tooltip
+                        formatter={(value, key) =>
+                          key === "amount"
+                            ? [fmt(value), "Amount"]
+                            : [value, "Boxes"]
                         }
-                        aria-label="Delete order"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: COLORS_UI.accent,
-                          cursor: "pointer",
-                          padding: "4px 2px 4px 6px",
-                          flexShrink: 0,
+                        labelFormatter={(_, payload) =>
+                          payload?.[0]?.payload?.fullName || ""
+                        }
+                        contentStyle={{
+                          background: "rgba(255,255,255,0.95)",
+                          border: "1px solid rgba(28,28,30,0.15)",
+                          borderRadius: 8,
+                          fontSize: 12,
                         }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      paddingTop: 10,
-                      marginTop: 4,
-                      borderTop: "1.5px solid rgba(28,28,30,0.25)",
-                      fontWeight: 700,
-                      fontSize: 14,
-                    }}
-                  >
-                    <span>{filteredTotals.boxes} boxes total</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace" }}>
-                      {fmt(filteredTotals.amount)}
-                    </span>
-                  </div>
-                </>
+                      />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="boxes"
+                        fill="#B23A2E"
+                        radius={[4, 4, 0, 0]}
+                        name="Boxes"
+                      />
+                      <Bar
+                        yAxisId="right"
+                        dataKey="amount"
+                        fill="#8E6A3E"
+                        radius={[4, 4, 0, 0]}
+                        name="Amount"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  marginTop: 8,
+                  fontSize: 11,
+                  color: COLORS_UI.inkSoft,
+                }}
+              >
+                <span>
+                  <span style={{ color: "#B23A2E", fontWeight: 700 }}>■</span>{" "}
+                  Boxes
+                </span>
+                <span>
+                  <span style={{ color: "#8E6A3E", fontWeight: 700 }}>■</span>{" "}
+                  Amount (₹)
+                </span>
+              </div>
             </div>
           </>
         )}
