@@ -20,16 +20,46 @@ import {
   COLORS_UI,
 } from "./shared.jsx";
 
-function fileToBase64(file) {
+// Downscales/recompresses the photo before it ever leaves the phone. Phone
+// cameras can produce 15-25MB files at full resolution — way more than
+// needed to read handwritten text, and slow to upload on mobile data.
+// Capping the longer side at 1800px and re-encoding as JPEG typically
+// shrinks a huge photo down to under ~1-2MB with no loss in legibility.
+const MAX_DIMENSION = 1800;
+const JPEG_QUALITY = 0.85;
+
+function resizeAndEncode(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      const base64 = result.substring(result.indexOf(",") + 1);
-      resolve(base64);
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      let { width, height } = img;
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const scale = MAX_DIMENSION / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+      const base64 = dataUrl.substring(dataUrl.indexOf(",") + 1);
+      resolve({ base64, mimeType: "image/jpeg" });
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Couldn't read that image file."));
+    };
+
+    img.src = objectUrl;
   });
 }
 
@@ -61,9 +91,9 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
     setErrorMsg("");
 
     try {
-      const base64 = await fileToBase64(file);
+      const { base64, mimeType } = await resizeAndEncode(file);
       const { data, error } = await supabase.functions.invoke("extract-boxes", {
-        body: { imageBase64: base64, mimeType: file.type || "image/jpeg" },
+        body: { imageBase64: base64, mimeType },
       });
 
       if (error) {
