@@ -164,6 +164,9 @@ html.dark {
     padding: 4px;
     border-bottom: 1.5px solid #111;
   }
+  .print-table th.print-num {
+    text-align: right;
+  }
   .print-table td {
     padding: 7px 4px;
     vertical-align: top;

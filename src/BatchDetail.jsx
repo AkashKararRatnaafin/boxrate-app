@@ -703,9 +703,7 @@ export default function BatchDetail({
                       </td>
                       <td className="print-num">{it.qty}</td>
                       <td className="print-num">{fmt(it.unit_price)}</td>
-                      <td className="print-num">
-                        {it.qty > 1 ? fmt(it.total_price) : ""}
-                      </td>
+                      <td className="print-num">{fmt(it.total_price)}</td>
                     </tr>
                   ))}
                 </tbody>
