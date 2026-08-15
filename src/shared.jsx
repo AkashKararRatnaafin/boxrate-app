@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   ChevronLeft,
@@ -209,15 +210,14 @@ export function NumField({ label, value, onChange, disabled, placeholder }) {
 }
 
 const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 6px)",
+  position: "fixed",
   background: "var(--card-bg)",
   backdropFilter: "blur(24px) saturate(180%)",
   WebkitBackdropFilter: "blur(24px) saturate(180%)",
   border: "1px solid var(--card-border)",
   borderRadius: 14,
   boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-  zIndex: 40,
+  zIndex: 1000,
   animation: "fadeInUp 0.15s ease both",
 };
 
@@ -226,25 +226,42 @@ export function SelectField({ value, onChange, options }) {
     typeof o === "string" ? { value: o, label: o } : o,
   );
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [rect, setRect] = useState(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (
+        btnRef.current &&
+        !btnRef.current.contains(e.target) &&
+        !(panelRef.current && panelRef.current.contains(e.target))
+      ) {
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  function toggleOpen() {
+    if (normalized.length === 0) return;
+    if (!open && btnRef.current)
+      setRect(btnRef.current.getBoundingClientRect());
+    setOpen((o) => !o);
+  }
+
   const selected = normalized.find((o) => o.value === value);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => normalized.length > 0 && setOpen((o) => !o)}
+        onClick={toggleOpen}
         style={{
           ...inputStyle,
+          width: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -276,44 +293,50 @@ export function SelectField({ value, onChange, options }) {
           }}
         />
       </button>
-      {open && normalized.length > 0 && (
-        <div
-          style={{
-            ...dropdownPanelStyle,
-            left: 0,
-            right: 0,
-            maxHeight: 220,
-            overflowY: "auto",
-          }}
-        >
-          {normalized.map((o) => {
-            const isSelected = o.value === value;
-            return (
-              <div
-                key={o.value}
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
-                style={{
-                  padding: "10px 12px",
-                  fontSize: 14,
-                  fontFamily: "'DM Mono', monospace",
-                  cursor: "pointer",
-                  background: isSelected
-                    ? "rgba(178,58,46,0.12)"
-                    : "transparent",
-                  color: isSelected ? "var(--accent-dark)" : "var(--ink)",
-                  fontWeight: isSelected ? 700 : 500,
-                }}
-              >
-                {o.label}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+      {open &&
+        normalized.length > 0 &&
+        rect &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{
+              ...dropdownPanelStyle,
+              top: rect.bottom + 6,
+              left: rect.left,
+              width: rect.width,
+              maxHeight: 220,
+              overflowY: "auto",
+            }}
+          >
+            {normalized.map((o) => {
+              const isSelected = o.value === value;
+              return (
+                <div
+                  key={o.value}
+                  onClick={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                  style={{
+                    padding: "10px 12px",
+                    fontSize: 14,
+                    fontFamily: "'DM Mono', monospace",
+                    cursor: "pointer",
+                    background: isSelected
+                      ? "rgba(178,58,46,0.12)"
+                      : "transparent",
+                    color: isSelected ? "var(--accent-dark)" : "var(--ink)",
+                    fontWeight: isSelected ? 700 : 500,
+                  }}
+                >
+                  {o.label}
+                </div>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
@@ -355,13 +378,22 @@ function formatDisplayDate(s) {
 
 export function DateField({ value, onChange, placeholder = "Select date" }) {
   const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState(null);
   const selectedDate = parseISODate(value);
   const [viewDate, setViewDate] = useState(() => selectedDate || new Date());
-  const ref = useRef(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
+  const PANEL_WIDTH = 240;
 
   useEffect(() => {
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (
+        btnRef.current &&
+        !btnRef.current.contains(e.target) &&
+        !(panelRef.current && panelRef.current.contains(e.target))
+      ) {
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -371,6 +403,12 @@ export function DateField({ value, onChange, placeholder = "Select date" }) {
     if (open) setViewDate(selectedDate || new Date());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  function toggleOpen() {
+    if (!open && btnRef.current)
+      setRect(btnRef.current.getBoundingClientRect());
+    setOpen((o) => !o);
+  }
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -388,13 +426,24 @@ export function DateField({ value, onChange, placeholder = "Select date" }) {
     setOpen(false);
   }
 
+  let panelLeft = 8;
+  if (rect) {
+    const centered = rect.left + rect.width / 2 - PANEL_WIDTH / 2;
+    panelLeft = Math.min(
+      Math.max(centered, 8),
+      window.innerWidth - PANEL_WIDTH - 8,
+    );
+  }
+
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         style={{
           ...inputStyle,
+          width: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -410,131 +459,135 @@ export function DateField({ value, onChange, placeholder = "Select date" }) {
           style={{ color: "var(--ink-soft)", flexShrink: 0, marginLeft: 6 }}
         />
       </button>
-      {open && (
-        <div
-          style={{
-            ...dropdownPanelStyle,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: 240,
-            maxWidth: "88vw",
-            padding: 10,
-          }}
-        >
+      {open &&
+        rect &&
+        createPortal(
           <div
+            ref={panelRef}
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 8,
+              ...dropdownPanelStyle,
+              top: rect.bottom + 6,
+              left: panelLeft,
+              width: PANEL_WIDTH,
+              maxWidth: "88vw",
+              padding: 10,
             }}
           >
-            <button
-              type="button"
-              onClick={() => setViewDate(new Date(year, month - 1, 1))}
-              style={calNavBtnStyle}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
             >
-              <ChevronLeft size={15} />
-            </button>
-            <span
-              style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)" }}
-            >
-              {MONTHS[month]} {year}
-            </span>
-            <button
-              type="button"
-              onClick={() => setViewDate(new Date(year, month + 1, 1))}
-              style={calNavBtnStyle}
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 2,
-              marginBottom: 2,
-            }}
-          >
-            {WEEKDAYS.map((w) => (
-              <div
-                key={w}
-                style={{
-                  textAlign: "center",
-                  fontSize: 9.5,
-                  color: "var(--ink-soft)",
-                  fontWeight: 700,
-                }}
+              <button
+                type="button"
+                onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                style={calNavBtnStyle}
               >
-                {w}
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 2,
-            }}
-          >
-            {cells.map((d, i) => {
-              if (d === null) return <div key={i} />;
-              const iso = toISODate(new Date(year, month, d));
-              const isSelected = iso === value;
-              const isToday = iso === todayISO;
-              return (
-                <button
-                  type="button"
-                  key={i}
-                  onClick={() => selectDay(d)}
+                <ChevronLeft size={15} />
+              </button>
+              <span
+                style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)" }}
+              >
+                {MONTHS[month]} {year}
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                style={calNavBtnStyle}
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: 2,
+                marginBottom: 2,
+              }}
+            >
+              {WEEKDAYS.map((w) => (
+                <div
+                  key={w}
                   style={{
-                    aspectRatio: "1",
-                    border:
-                      isToday && !isSelected
-                        ? "1px solid var(--accent)"
-                        : "none",
-                    borderRadius: 8,
-                    background: isSelected
-                      ? "var(--accent-grad)"
-                      : "transparent",
-                    color: isSelected ? "#fff" : "var(--ink)",
-                    fontSize: 11.5,
-                    fontFamily: "'DM Mono', monospace",
-                    fontWeight: isSelected ? 700 : 500,
-                    cursor: "pointer",
+                    textAlign: "center",
+                    fontSize: 9.5,
+                    color: "var(--ink-soft)",
+                    fontWeight: 700,
                   }}
                 >
-                  {d}
-                </button>
-              );
-            })}
-          </div>
-          {value && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
+                  {w}
+                </div>
+              ))}
+            </div>
+            <div
               style={{
-                marginTop: 8,
-                width: "100%",
-                background: "none",
-                border: "none",
-                color: "var(--ink-soft)",
-                fontSize: 11.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                padding: 4,
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: 2,
               }}
             >
-              Clear date
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+              {cells.map((d, i) => {
+                if (d === null) return <div key={i} />;
+                const iso = toISODate(new Date(year, month, d));
+                const isSelected = iso === value;
+                const isToday = iso === todayISO;
+                return (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => selectDay(d)}
+                    style={{
+                      aspectRatio: "1",
+                      border:
+                        isToday && !isSelected
+                          ? "1px solid var(--accent)"
+                          : "none",
+                      borderRadius: 8,
+                      background: isSelected
+                        ? "var(--accent-grad)"
+                        : "transparent",
+                      color: isSelected ? "#fff" : "var(--ink)",
+                      fontSize: 11.5,
+                      fontFamily: "'DM Mono', monospace",
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+            {value && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+                style={{
+                  marginTop: 8,
+                  width: "100%",
+                  background: "none",
+                  border: "none",
+                  color: "var(--ink-soft)",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: 4,
+                }}
+              >
+                Clear date
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
