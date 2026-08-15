@@ -1,5 +1,10 @@
-import React, { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+} from "lucide-react";
 import { supabase } from "./supabaseClient.js";
 
 export const COLORS = ["Blue", "Maroon", "Red"];
@@ -182,7 +187,7 @@ export function TextField({ label, value, onChange, placeholder }) {
   );
 }
 
-export function NumField({ label, value, onChange, disabled }) {
+export function NumField({ label, value, onChange, disabled, placeholder }) {
   return (
     <div
       style={{
@@ -195,6 +200,7 @@ export function NumField({ label, value, onChange, disabled }) {
         type="number"
         inputMode="decimal"
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         style={{ ...inputStyle, textAlign: "center" }}
       />
@@ -202,44 +208,348 @@ export function NumField({ label, value, onChange, disabled }) {
   );
 }
 
+const dropdownPanelStyle = {
+  position: "absolute",
+  top: "calc(100% + 6px)",
+  background: "var(--card-bg)",
+  backdropFilter: "blur(24px) saturate(180%)",
+  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+  border: "1px solid var(--card-border)",
+  borderRadius: 14,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+  zIndex: 40,
+  animation: "fadeInUp 0.15s ease both",
+};
+
 export function SelectField({ value, onChange, options }) {
   const normalized = options.map((o) =>
     typeof o === "string" ? { value: o, label: o } : o,
   );
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const selected = normalized.find((o) => o.value === value);
+
   return (
-    <div style={{ position: "relative" }}>
-      <select
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => normalized.length > 0 && setOpen((o) => !o)}
         style={{
           ...inputStyle,
-          appearance: "none",
-          WebkitAppearance: "none",
-          paddingRight: 28,
-          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: normalized.length > 0 ? "pointer" : "default",
+          textAlign: "left",
         }}
       >
-        {normalized.length === 0 && <option value="">No options yet</option>}
-        {normalized.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        size={14}
-        style={{
-          position: "absolute",
-          right: 9,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-          color: "var(--ink-soft)",
-        }}
-      />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {selected
+            ? selected.label
+            : normalized.length === 0
+              ? "No options yet"
+              : "Select…"}
+        </span>
+        <ChevronDown
+          size={14}
+          style={{
+            color: "var(--ink-soft)",
+            flexShrink: 0,
+            marginLeft: 6,
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 0.15s",
+          }}
+        />
+      </button>
+      {open && normalized.length > 0 && (
+        <div
+          style={{
+            ...dropdownPanelStyle,
+            left: 0,
+            right: 0,
+            maxHeight: 220,
+            overflowY: "auto",
+          }}
+        >
+          {normalized.map((o) => {
+            const isSelected = o.value === value;
+            return (
+              <div
+                key={o.value}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  fontFamily: "'DM Mono', monospace",
+                  cursor: "pointer",
+                  background: isSelected
+                    ? "rgba(178,58,46,0.12)"
+                    : "transparent",
+                  color: isSelected ? "var(--accent-dark)" : "var(--ink)",
+                  fontWeight: isSelected ? 700 : 500,
+                }}
+              >
+                {o.label}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
+
+/* ---------- Custom date picker (replaces native input[type=date]) ---------- */
+
+const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+function toISODate(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function parseISODate(s) {
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+function formatDisplayDate(s) {
+  const d = parseISODate(s);
+  if (!d) return "";
+  return `${pad2(d.getDate())} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+}
+
+export function DateField({ value, onChange, placeholder = "Select date" }) {
+  const [open, setOpen] = useState(false);
+  const selectedDate = parseISODate(value);
+  const [viewDate, setViewDate] = useState(() => selectedDate || new Date());
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (open) setViewDate(selectedDate || new Date());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayISO = toISODate(new Date());
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  function selectDay(d) {
+    onChange(toISODate(new Date(year, month, d)));
+    setOpen(false);
+  }
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          ...inputStyle,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ color: value ? "var(--ink)" : "var(--ink-soft)" }}>
+          {value ? formatDisplayDate(value) : placeholder}
+        </span>
+        <CalendarIcon
+          size={14}
+          style={{ color: "var(--ink-soft)", flexShrink: 0, marginLeft: 6 }}
+        />
+      </button>
+      {open && (
+        <div
+          style={{
+            ...dropdownPanelStyle,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 240,
+            maxWidth: "88vw",
+            padding: 10,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(year, month - 1, 1))}
+              style={calNavBtnStyle}
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span
+              style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)" }}
+            >
+              {MONTHS[month]} {year}
+            </span>
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(year, month + 1, 1))}
+              style={calNavBtnStyle}
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 2,
+              marginBottom: 2,
+            }}
+          >
+            {WEEKDAYS.map((w) => (
+              <div
+                key={w}
+                style={{
+                  textAlign: "center",
+                  fontSize: 9.5,
+                  color: "var(--ink-soft)",
+                  fontWeight: 700,
+                }}
+              >
+                {w}
+              </div>
+            ))}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 2,
+            }}
+          >
+            {cells.map((d, i) => {
+              if (d === null) return <div key={i} />;
+              const iso = toISODate(new Date(year, month, d));
+              const isSelected = iso === value;
+              const isToday = iso === todayISO;
+              return (
+                <button
+                  type="button"
+                  key={i}
+                  onClick={() => selectDay(d)}
+                  style={{
+                    aspectRatio: "1",
+                    border:
+                      isToday && !isSelected
+                        ? "1px solid var(--accent)"
+                        : "none",
+                    borderRadius: 8,
+                    background: isSelected
+                      ? "var(--accent-grad)"
+                      : "transparent",
+                    color: isSelected ? "#fff" : "var(--ink)",
+                    fontSize: 11.5,
+                    fontFamily: "'DM Mono', monospace",
+                    fontWeight: isSelected ? 700 : 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              style={{
+                marginTop: 8,
+                width: "100%",
+                background: "none",
+                border: "none",
+                color: "var(--ink-soft)",
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                padding: 4,
+              }}
+            >
+              Clear date
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const calNavBtnStyle = {
+  width: 24,
+  height: 24,
+  borderRadius: 7,
+  border: "none",
+  background: "rgba(0,0,0,0.06)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  color: "var(--ink)",
+};
 
 export function Toggle({ checked, onChange }) {
   return (

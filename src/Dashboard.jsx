@@ -18,6 +18,7 @@ import {
   inputStyle,
   labelStyle,
   SelectField,
+  DateField,
   COLORS_UI,
   titleStyle,
   subtitleStyle,
@@ -232,21 +233,11 @@ export default function Dashboard({ onBack }) {
                 <div style={{ display: "flex", gap: 8 }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>From</label>
-                    <input
-                      type="date"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      style={inputStyle}
-                    />
+                    <DateField value={fromDate} onChange={setFromDate} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>To</label>
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      style={inputStyle}
-                    />
+                    <DateField value={toDate} onChange={setToDate} />
                   </div>
                 </div>
               </div>

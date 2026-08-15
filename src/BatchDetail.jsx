@@ -156,10 +156,10 @@ export default function BatchDetail({
       ...rs,
       {
         id: tempId,
-        height: 5,
-        length: 5,
-        width: 3,
-        qty: 1,
+        height: "",
+        length: "",
+        width: "",
+        qty: "",
         hasAcrylic: false,
         description: "",
         color: "Blue",
@@ -296,8 +296,8 @@ export default function BatchDetail({
   const boxCount = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
 
   return (
-    <div style={pageStyle}>
-      <div style={{ maxWidth: 460, margin: "0 auto" }}>
+    <div style={pageStyle} className="page-root">
+      <div style={{ maxWidth: 460, margin: "0 auto" }} className="content-wrap">
         <div style={{ padding: "10px 6px 18px" }} className="no-print">
           <button onClick={onBack} style={backBtnStyle}>
             <ArrowLeft size={14} /> back to dashboard
@@ -410,21 +410,25 @@ export default function BatchDetail({
                   <NumField
                     label="Height"
                     value={row.height}
+                    placeholder="in"
                     onChange={(v) => updateEditRow(row.id, { height: v })}
                   />
                   <NumField
                     label="Length"
                     value={row.length}
+                    placeholder="in"
                     onChange={(v) => updateEditRow(row.id, { length: v })}
                   />
                   <NumField
                     label="Width"
                     value={row.width}
+                    placeholder="in"
                     onChange={(v) => updateEditRow(row.id, { width: v })}
                   />
                   <NumField
                     label="Qty"
                     value={row.qty}
+                    placeholder="1"
                     onChange={(v) => updateEditRow(row.id, { qty: v })}
                   />
                 </div>
@@ -584,91 +588,133 @@ export default function BatchDetail({
           </>
         ) : (
           <>
-            <div
-              style={{
-                ...cardStyle,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Package size={16} color={COLORS_UI.inkSoft} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>
-                  {boxCount} boxes
-                </span>
-              </div>
+            <div className="screen-only">
               <div
                 style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: 19,
-                  fontWeight: 700,
-                  color: COLORS_UI.accentDark,
+                  ...cardStyle,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
-                {fmt(total)}
-              </div>
-            </div>
-
-            {items.map((it, idx) => (
-              <div key={it.id} style={cardStyle}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Package size={16} color={COLORS_UI.inkSoft} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    {boxCount} boxes
+                  </span>
+                </div>
                 <div
                   style={{
                     fontFamily: "'DM Mono', monospace",
-                    fontSize: 12,
+                    fontSize: 19,
                     fontWeight: 700,
                     color: COLORS_UI.accentDark,
-                    letterSpacing: 1,
-                    marginBottom: 8,
                   }}
                 >
-                  BOX {idx + 1}
-                  {it.description && (
-                    <span
-                      style={{
-                        color: COLORS_UI.ink,
-                        fontWeight: 600,
-                        marginLeft: 6,
-                        letterSpacing: 0,
-                      }}
-                    >
-                      — {it.description}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-                  <div>
-                    <b>{it.height}</b>H &times; <b>{it.length}</b>L &times;{" "}
-                    <b>{it.width}</b>W in, qty <b>{it.qty}</b>
-                  </div>
-                  <div style={{ color: COLORS_UI.inkSoft, fontSize: 12.5 }}>
-                    {it.color || "—"} &middot;{" "}
-                    {it.has_acrylic ? "Acrylic" : "No acrylic"}
-                    <span className="no-print">
-                      {it.has_acrylic && ` @ ${it.acrylic_rate}/sq.in`} &middot;
-                      Rate {it.rate}/sq.in
-                    </span>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    borderTop: "1px dashed var(--input-border)",
-                    marginTop: 8,
-                    paddingTop: 8,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontFamily: "'DM Mono', monospace",
-                  }}
-                >
-                  <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
-                    {fmt(it.unit_price)} &times; {it.qty}
-                  </span>
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>
-                    {fmt(it.total_price)}
-                  </span>
+                  {fmt(total)}
                 </div>
               </div>
-            ))}
+
+              {items.map((it, idx) => (
+                <div key={it.id} style={cardStyle}>
+                  <div
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: COLORS_UI.accentDark,
+                      letterSpacing: 1,
+                      marginBottom: 8,
+                    }}
+                  >
+                    BOX {idx + 1}
+                    {it.description && (
+                      <span
+                        style={{
+                          color: COLORS_UI.ink,
+                          fontWeight: 600,
+                          marginLeft: 6,
+                          letterSpacing: 0,
+                        }}
+                      >
+                        — {it.description}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+                    <div>
+                      <b>{it.height}</b>H &times; <b>{it.length}</b>L &times;{" "}
+                      <b>{it.width}</b>W in, qty <b>{it.qty}</b>
+                    </div>
+                    <div style={{ color: COLORS_UI.inkSoft, fontSize: 12.5 }}>
+                      {it.color || "—"} &middot;{" "}
+                      {it.has_acrylic ? "Acrylic" : "No acrylic"}
+                      <span className="no-print">
+                        {it.has_acrylic && ` @ ${it.acrylic_rate}/sq.in`}{" "}
+                        &middot; Rate {it.rate}/sq.in
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      borderTop: "1px dashed var(--input-border)",
+                      marginTop: 8,
+                      paddingTop: 8,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontFamily: "'DM Mono', monospace",
+                    }}
+                  >
+                    <span style={{ fontSize: 11.5, color: COLORS_UI.inkSoft }}>
+                      {fmt(it.unit_price)} &times; {it.qty}
+                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>
+                      {fmt(it.total_price)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Print-only: compact row-per-box receipt, laid out for handing to the vendor */}
+            <div className="print-only">
+              <table className="print-table">
+                <thead>
+                  <tr>
+                    <th>Box</th>
+                    <th className="print-num">Qty</th>
+                    <th className="print-num">Unit ₹</th>
+                    <th className="print-num">Total ₹</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, idx) => (
+                    <tr key={it.id}>
+                      <td>
+                        <div className="print-desc">
+                          {it.description || `Box ${idx + 1}`}
+                        </div>
+                        <div className="print-dims">
+                          {it.height}H &times; {it.length}L &times; {it.width}W
+                          in
+                          {it.color ? ` · ${it.color}` : ""}
+                          {it.has_acrylic ? " · Acrylic" : ""}
+                        </div>
+                      </td>
+                      <td className="print-num">{it.qty}</td>
+                      <td className="print-num">{fmt(it.unit_price)}</td>
+                      <td className="print-num">
+                        {it.qty > 1 ? fmt(it.total_price) : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="print-grand-total">
+                <span>Total ({boxCount} boxes)</span>
+                <span>{fmt(total)}</span>
+              </div>
+            </div>
           </>
         )}
       </div>

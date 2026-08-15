@@ -14,6 +14,7 @@ import {
   NumField,
   TextField,
   SelectField,
+  DateField,
   Toggle,
   COLORS_UI,
   titleStyle,
@@ -43,10 +44,10 @@ function vendorAcrylicRate(vendors, vendorId, fallback) {
 function makeRow(id, defaults) {
   return {
     id,
-    height: defaults.height ?? 5,
-    length: defaults.length ?? 5,
-    width: defaults.width ?? 3,
-    qty: defaults.qty ?? 1,
+    height: defaults.height ?? "",
+    length: defaults.length ?? "",
+    width: defaults.width ?? "",
+    qty: defaults.qty ?? "",
     hasAcrylic: defaults.hasAcrylic ?? false,
     description: defaults.description ?? "",
     color: defaults.color ?? "Blue",
@@ -306,12 +307,7 @@ export default function VerifyGrid({
 
         <div style={cardStyle}>
           <div style={sectionLabelStyle}>Date</div>
-          <input
-            type="date"
-            value={batchDate}
-            onChange={(e) => setBatchDate(e.target.value)}
-            style={inputStyle}
-          />
+          <DateField value={batchDate} onChange={setBatchDate} />
           <div style={{ fontSize: 11, color: COLORS_UI.inkSoft, marginTop: 8 }}>
             Applies to every box below. Vendor is set per box further down.
           </div>
@@ -400,21 +396,25 @@ export default function VerifyGrid({
                 <NumField
                   label="Height"
                   value={row.height}
+                  placeholder="in"
                   onChange={(v) => updateRow(row.id, { height: v })}
                 />
                 <NumField
                   label="Length"
                   value={row.length}
+                  placeholder="in"
                   onChange={(v) => updateRow(row.id, { length: v })}
                 />
                 <NumField
                   label="Width"
                   value={row.width}
+                  placeholder="in"
                   onChange={(v) => updateRow(row.id, { width: v })}
                 />
                 <NumField
                   label="Qty"
                   value={row.qty}
+                  placeholder="1"
                   onChange={(v) => updateRow(row.id, { qty: v })}
                 />
               </div>
