@@ -385,6 +385,7 @@ export default function BatchDetail({
           </div>
         ) : isEditing ? (
           <>
+            <div style={{ paddingTop: 14 }} />
             {editRows.map((row, idx) => (
               <div key={row.id} style={cardStyle}>
                 <div
@@ -578,14 +579,12 @@ export default function BatchDetail({
                 </div>
               </div>
             ))}
-
             <button
               onClick={addBlankRow}
               style={{ ...secondaryBtn, marginBottom: 12 }}
             >
               <Plus size={17} /> Add box
             </button>
-
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
               <button
                 onClick={cancelEditing}
@@ -608,7 +607,6 @@ export default function BatchDetail({
                 )}
               </button>
             </div>
-
             <button
               onClick={handleDeleteOrder}
               style={dangerBtn}
@@ -620,7 +618,7 @@ export default function BatchDetail({
           </>
         ) : (
           <>
-            <div className="screen-only">
+            <div className="screen-only" style={{ paddingTop: 14 }}>
               <div
                 style={{
                   ...cardStyle,
