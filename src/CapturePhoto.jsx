@@ -76,10 +76,7 @@ export default function CapturePhoto({ onExtracted, onManageVendors }) {
 
   useEffect(() => {
     fetchVendors()
-      .then((vs) => {
-        setVendors(vs);
-        if (vs.length > 0) setVendor(vs[0].id);
-      })
+      .then((vs) => setVendors(vs))
       .catch((err) => setErrorMsg("Couldn't load vendors: " + err.message))
       .finally(() => setVendorsLoading(false));
   }, []);

@@ -26,6 +26,12 @@ import {
   sectionLabelStyle,
 } from "./shared.jsx";
 
+function compactNumber(n) {
+  if (n >= 100000) return (n / 100000).toFixed(n % 100000 === 0 ? 0 : 1) + "L";
+  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + "k";
+  return String(n);
+}
+
 export default function Dashboard({ onBack }) {
   const [vendors, setVendors] = useState([]);
   const [orders, setOrders] = useState([]); // rows from order_summary (per vendor+date)
@@ -255,7 +261,7 @@ export default function Dashboard({ onBack }) {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={chartData}
-                        margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
+                        margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                       >
                         <CartesianGrid
                           strokeDasharray="3 3"
@@ -272,7 +278,8 @@ export default function Dashboard({ onBack }) {
                           tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
                           axisLine={false}
                           tickLine={false}
-                          width={30}
+                          width={36}
+                          allowDecimals={false}
                         />
                         <YAxis
                           yAxisId="right"
@@ -280,23 +287,30 @@ export default function Dashboard({ onBack }) {
                           tick={{ fontSize: 10, fill: "var(--ink-soft)" }}
                           axisLine={false}
                           tickLine={false}
-                          width={38}
+                          width={48}
+                          tickFormatter={compactNumber}
                         />
                         <Tooltip
-                          formatter={(value, key) =>
-                            key === "amount"
-                              ? [fmt(value), "Amount"]
-                              : [value, "Boxes"]
+                          formatter={(value, name, props) =>
+                            props.dataKey === "amount"
+                              ? [fmt(value), name]
+                              : [value, name]
                           }
                           labelFormatter={(_, payload) =>
                             payload?.[0]?.payload?.fullName || ""
                           }
                           contentStyle={{
-                            background: "rgba(255,255,255,0.95)",
+                            background: "rgba(255,255,255,0.97)",
                             border: "1px solid rgba(28,28,30,0.15)",
                             borderRadius: 8,
                             fontSize: 12,
                           }}
+                          labelStyle={{
+                            color: "#1A1A1A",
+                            fontWeight: 700,
+                            marginBottom: 4,
+                          }}
+                          itemStyle={{ color: "#1A1A1A" }}
                         />
                         <Bar
                           yAxisId="left"

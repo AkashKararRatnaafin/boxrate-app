@@ -32,6 +32,8 @@ import {
   COLORS_UI,
   useConfirm,
 } from "./shared.jsx";
+import { buildOrderPdf } from "./pdf.js";
+import PdfPreviewDialog from "./PdfPreviewDialog.jsx";
 
 function vendorRate(vendors, vendorId, fallback) {
   const v = vendors.find((v) => v.id === vendorId);
@@ -87,6 +89,7 @@ export default function BatchDetail({
   const [editRows, setEditRows] = useState([]);
   const [saving, setSaving] = useState(false);
   const [deletingOrder, setDeletingOrder] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState(null);
   const tempIdRef = useRef(0);
 
   async function load() {
@@ -289,7 +292,12 @@ export default function BatchDetail({
   }
 
   function handlePrint() {
-    window.print();
+    try {
+      const doc = buildOrderPdf({ vendorName, batchDate, items });
+      setPdfBlob(doc.output("blob"));
+    } catch (err) {
+      setError("Couldn't generate PDF: " + err.message);
+    }
   }
 
   const total = items.reduce((sum, it) => sum + Number(it.total_price || 0), 0);
@@ -298,34 +306,57 @@ export default function BatchDetail({
   return (
     <div style={pageStyle} className="page-root">
       <div style={{ maxWidth: 460, margin: "0 auto" }} className="content-wrap">
-        <div style={{ padding: "10px 6px 18px" }} className="no-print">
-          <button onClick={onBack} style={backBtnStyle}>
-            <ArrowLeft size={14} /> back to dashboard
-          </button>
-        </div>
-
         <div
+          className="no-print"
           style={{
-            padding: "0 6px 18px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            marginLeft: -12,
+            marginRight: -12,
+            paddingLeft: 12,
+            paddingRight: 12,
+            background: "var(--card-bg)",
+            backdropFilter: "blur(20px) saturate(160%)",
+            WebkitBackdropFilter: "blur(20px) saturate(160%)",
+            borderBottom: "1px solid var(--card-border)",
           }}
         >
-          <div>
-            <h1 style={titleStyle}>{vendorName || "Order"}</h1>
-            <p style={subtitleStyle}>{batchDate}</p>
+          <div style={{ padding: "10px 6px 0" }}>
+            <button onClick={onBack} style={backBtnStyle}>
+              <ArrowLeft size={14} /> back to dashboard
+            </button>
           </div>
-          {!isEditing && !loading && (
-            <div className="no-print" style={{ display: "flex", gap: 8 }}>
-              <IconBtn onClick={handlePrint} aria-label="Print">
-                <Printer size={16} />
-              </IconBtn>
-              <IconBtn onClick={startEditing} aria-label="Edit">
-                <Pencil size={16} />
-              </IconBtn>
+          <div
+            style={{
+              padding: "0 6px 12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+            }}
+          >
+            <div>
+              <h1 style={titleStyle}>{vendorName || "Order"}</h1>
+              <p style={subtitleStyle}>{batchDate}</p>
             </div>
-          )}
+            {!isEditing && !loading && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <IconBtn onClick={handlePrint} aria-label="Print">
+                  <Printer size={16} />
+                </IconBtn>
+                <IconBtn onClick={startEditing} aria-label="Edit">
+                  <Pencil size={16} />
+                </IconBtn>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Print-only header — the sticky bar above is hidden on paper, so the
+            receipt still needs its own plain vendor name + date up top. */}
+        <div className="print-only" style={{ padding: "10px 6px 18px" }}>
+          <h1 style={titleStyle}>{vendorName || "Order"}</h1>
+          <p style={subtitleStyle}>{batchDate}</p>
         </div>
 
         {error && (
@@ -717,6 +748,13 @@ export default function BatchDetail({
         )}
       </div>
       {dialog}
+      {pdfBlob && (
+        <PdfPreviewDialog
+          blob={pdfBlob}
+          filename={`${(vendorName || "order").replace(/\s+/g, "-")}-${batchDate}.pdf`}
+          onClose={() => setPdfBlob(null)}
+        />
+      )}
     </div>
   );
 }

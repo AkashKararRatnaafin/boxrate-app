@@ -244,6 +244,22 @@ export function SelectField({ value, onChange, options }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // The panel is positioned via a snapshot of the trigger's on-screen
+  // location. Without this, scrolling the page after opening would leave
+  // the panel floating in its original spot instead of following the field.
+  useEffect(() => {
+    if (!open) return;
+    function updateRect() {
+      if (btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+    }
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [open]);
+
   function toggleOpen() {
     if (normalized.length === 0) return;
     if (!open && btnRef.current)
@@ -402,6 +418,21 @@ export function DateField({ value, onChange, placeholder = "Select date" }) {
   useEffect(() => {
     if (open) setViewDate(selectedDate || new Date());
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Same reasoning as SelectField: without this, scrolling the page after
+  // opening the calendar leaves it floating in its original screen spot.
+  useEffect(() => {
+    if (!open) return;
+    function updateRect() {
+      if (btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+    }
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
   }, [open]);
 
   function toggleOpen() {
