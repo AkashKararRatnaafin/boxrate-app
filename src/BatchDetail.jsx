@@ -33,7 +33,7 @@ import {
   useConfirm,
 } from "./shared.jsx";
 import { buildOrderPdf } from "./pdf.js";
-import PdfPreviewDialog from "./PdfPreviewDialog.jsx";
+const PdfPreviewDialog = React.lazy(() => import("./PdfPreviewDialog.jsx"));
 
 function vendorRate(vendors, vendorId, fallback) {
   const v = vendors.find((v) => v.id === vendorId);
@@ -323,14 +323,14 @@ export default function BatchDetail({
             borderBottom: "1px solid var(--card-border)",
           }}
         >
-          <div style={{ padding: "14px 6px 0" }}>
+          <div style={{ padding: "22px 6px 6px" }}>
             <button onClick={onBack} style={backBtnStyle}>
               <ArrowLeft size={14} /> back to dashboard
             </button>
           </div>
           <div
             style={{
-              padding: "0 6px 12px",
+              padding: "0 6px 18px",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-end",
@@ -341,7 +341,7 @@ export default function BatchDetail({
               <p style={subtitleStyle}>{batchDate}</p>
             </div>
             {!isEditing && !loading && (
-              <div style={{ display: "flex", gap: 8, marginRight: 46 }}>
+              <div style={{ display: "flex", gap: 8 }}>
                 <IconBtn onClick={handlePrint} aria-label="Print">
                   <Printer size={16} />
                 </IconBtn>
@@ -750,11 +750,13 @@ export default function BatchDetail({
       </div>
       {dialog}
       {pdfBlob && (
-        <PdfPreviewDialog
-          blob={pdfBlob}
-          filename={`${(vendorName || "order").replace(/\s+/g, "-")}-${batchDate}.pdf`}
-          onClose={() => setPdfBlob(null)}
-        />
+        <React.Suspense fallback={null}>
+          <PdfPreviewDialog
+            blob={pdfBlob}
+            filename={`${(vendorName || "order").replace(/\s+/g, "-")}-${batchDate}.pdf`}
+            onClose={() => setPdfBlob(null)}
+          />
+        </React.Suspense>
       )}
     </div>
   );
