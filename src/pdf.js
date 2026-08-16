@@ -44,20 +44,13 @@ export function buildOrderPdf({ vendorName, batchDate, items }) {
     head: [["Box", "Qty", "Unit", "Total"]],
     body,
     theme: "plain",
-    styles: {
-      fontSize: 10,
-      cellPadding: 7,
-      valign: "top",
-      lineColor: [220, 220, 220],
-      lineWidth: { bottom: 0.5 },
-    },
+    styles: { fontSize: 10, cellPadding: 7, valign: "top", lineWidth: 0 },
     headStyles: {
       fillColor: [255, 255, 255],
       textColor: [90, 90, 90],
       fontStyle: "bold",
       fontSize: 8.5,
-      lineWidth: { bottom: 1 },
-      lineColor: [20, 20, 20],
+      lineWidth: 0,
     },
     bodyStyles: {
       fillColor: [255, 255, 255],
@@ -94,6 +87,23 @@ export function buildOrderPdf({ vendorName, batchDate, items }) {
           maxWidth: data.cell.width - data.cell.padding("horizontal"),
         });
         doc.setTextColor(0, 0, 0);
+      }
+
+      // Draw one explicit separator line per row, once all its cells are
+      // known — this avoids relying on autoTable's automatic per-cell
+      // borders, which render inconsistently when one column (the
+      // description) has a taller forced height than the others in the
+      // same row.
+      const isLastColumn = data.column.index === data.table.columns.length - 1;
+      if (isLastColumn) {
+        const lineY = data.cell.y + data.cell.height;
+        const left = data.table.settings.margin.left;
+        const right = pageWidth - data.table.settings.margin.right;
+        doc.setLineWidth(data.row.section === "head" ? 1 : 0.5);
+        doc.setDrawColor(
+          ...(data.row.section === "head" ? [20, 20, 20] : [220, 220, 220]),
+        );
+        doc.line(left, lineY, right, lineY);
       }
     },
   });

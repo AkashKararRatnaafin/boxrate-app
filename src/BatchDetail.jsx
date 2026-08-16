@@ -379,6 +379,7 @@ export default function BatchDetail({
               ...cardStyle,
               textAlign: "center",
               color: COLORS_UI.inkSoft,
+              marginTop: 14,
             }}
           >
             Loading…
