@@ -43,12 +43,13 @@ export function buildOrderPdf({ vendorName, batchDate, items }) {
     margin: { left: marginX, right: marginX },
     head: [["Box", "Qty", "Unit", "Total"]],
     body,
+    theme: "plain",
     styles: {
       fontSize: 10,
       cellPadding: 7,
       valign: "top",
       lineColor: [220, 220, 220],
-      lineWidth: 0.5,
+      lineWidth: { bottom: 0.5 },
     },
     headStyles: {
       fillColor: [255, 255, 255],
@@ -57,6 +58,9 @@ export function buildOrderPdf({ vendorName, batchDate, items }) {
       fontSize: 8.5,
       lineWidth: { bottom: 1 },
       lineColor: [20, 20, 20],
+    },
+    bodyStyles: {
+      fillColor: [255, 255, 255],
     },
     columnStyles: {
       0: { cellWidth: "auto" },
@@ -67,6 +71,10 @@ export function buildOrderPdf({ vendorName, batchDate, items }) {
     didParseCell: (data) => {
       if (data.column.index === 0 && data.row.section === "body") {
         data.cell.text = [];
+        // Two manually-drawn lines (description + dims) need more room than
+        // autoTable would otherwise reserve for an "empty" cell — without
+        // this the second line gets clipped by the next row's border.
+        data.cell.styles.minCellHeight = 36;
       }
     },
     didDrawCell: (data) => {

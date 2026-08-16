@@ -38,30 +38,43 @@ export default function PdfPreviewDialog({ blob, filename, onClose }) {
 
   return (
     <div style={overlayStyle} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={sheetStyle}>
-        <div style={headerStyle}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "#1A1A1A" }}>
-            Order PDF
-          </span>
-          <button onClick={onClose} style={closeBtnStyle} aria-label="Close">
-            <X size={20} />
-          </button>
+      <div onClick={(e) => e.stopPropagation()} style={columnStyle}>
+        <div style={cardStyle}>
+          <div style={headerStyle}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: "#1A1A1A" }}>
+              Order PDF
+            </span>
+            <button onClick={onClose} style={closeBtnStyle} aria-label="Close">
+              <X size={20} />
+            </button>
+          </div>
+          <div style={{ flex: 1, overflow: "hidden", background: "#525659" }}>
+            <iframe
+              title="PDF preview"
+              src={url}
+              style={{ width: "100%", height: "100%", border: "none" }}
+            />
+          </div>
         </div>
-        <div style={{ flex: 1, overflow: "hidden", background: "#525659" }}>
-          <iframe
-            title="PDF preview"
-            src={url}
-            style={{ width: "100%", height: "100%", border: "none" }}
-          />
-        </div>
-        <div style={footerStyle}>
+
+        <div style={floatingRowStyle}>
           {canShareFiles && (
-            <button onClick={handleShare} style={shareBtnStyle}>
-              <Share2 size={16} /> Share
+            <button
+              onClick={handleShare}
+              style={floatingBtnStyle(
+                "linear-gradient(135deg, #FF5B4A 0%, #E8394F 100%)",
+              )}
+              aria-label="Share"
+            >
+              <Share2 size={22} color="#fff" />
             </button>
           )}
-          <button onClick={handleDownload} style={downloadBtnStyle}>
-            <Download size={16} /> Download
+          <button
+            onClick={handleDownload}
+            style={floatingBtnStyle("#fff")}
+            aria-label="Download"
+          >
+            <Download size={22} color="#1A1A1A" />
           </button>
         </div>
       </div>
@@ -73,23 +86,31 @@ const overlayStyle = {
   position: "fixed",
   inset: 0,
   zIndex: 200,
-  background: "rgba(0,0,0,0.55)",
+  background: "rgba(0,0,0,0.6)",
   display: "flex",
-  alignItems: "flex-end",
+  alignItems: "center",
   justifyContent: "center",
+  padding: 24,
+  boxSizing: "border-box",
 };
 
-const sheetStyle = {
+const columnStyle = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
   width: "100%",
-  maxWidth: 500,
-  height: "88vh",
+  maxWidth: 460,
+};
+
+const cardStyle = {
+  width: "100%",
+  maxHeight: "calc(100vh - 220px)",
   background: "#fff",
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
+  borderRadius: 20,
   display: "flex",
   flexDirection: "column",
   overflow: "hidden",
-  boxShadow: "0 -8px 30px rgba(0,0,0,0.4)",
+  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
 };
 
 const headerStyle = {
@@ -109,43 +130,23 @@ const closeBtnStyle = {
   display: "flex",
 };
 
-const footerStyle = {
+const floatingRowStyle = {
   display: "flex",
-  gap: 10,
-  padding: 14,
-  borderTop: "1px solid #eee",
-  flexShrink: 0,
-  paddingBottom: "calc(14px + env(safe-area-inset-bottom))",
+  gap: 20,
+  marginTop: 18,
 };
 
-const shareBtnStyle = {
-  flex: 1,
-  padding: "13px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(135deg, #FF5B4A 0%, #E8394F 100%)",
-  color: "#fff",
-  fontWeight: 700,
-  fontSize: 14,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  cursor: "pointer",
-};
-
-const downloadBtnStyle = {
-  flex: 1,
-  padding: "13px",
-  borderRadius: 14,
-  border: "1px solid #ddd",
-  background: "#F5F5F5",
-  color: "#1A1A1A",
-  fontWeight: 700,
-  fontSize: 14,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  cursor: "pointer",
-};
+function floatingBtnStyle(background) {
+  return {
+    width: 56,
+    height: 56,
+    borderRadius: "50%",
+    border: "none",
+    background,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    boxShadow: "0 8px 22px rgba(0,0,0,0.4)",
+  };
+}

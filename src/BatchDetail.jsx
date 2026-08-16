@@ -304,7 +304,7 @@ export default function BatchDetail({
   const boxCount = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
 
   return (
-    <div style={pageStyle} className="page-root">
+    <div style={{ ...pageStyle, paddingTop: 0 }} className="page-root">
       <div style={{ maxWidth: 460, margin: "0 auto" }} className="content-wrap">
         <div
           className="no-print"
@@ -316,13 +316,14 @@ export default function BatchDetail({
             marginRight: -12,
             paddingLeft: 12,
             paddingRight: 12,
+            paddingTop: "env(safe-area-inset-top)",
             background: "var(--card-bg)",
             backdropFilter: "blur(20px) saturate(160%)",
             WebkitBackdropFilter: "blur(20px) saturate(160%)",
             borderBottom: "1px solid var(--card-border)",
           }}
         >
-          <div style={{ padding: "10px 6px 0" }}>
+          <div style={{ padding: "14px 6px 0" }}>
             <button onClick={onBack} style={backBtnStyle}>
               <ArrowLeft size={14} /> back to dashboard
             </button>
@@ -340,7 +341,7 @@ export default function BatchDetail({
               <p style={subtitleStyle}>{batchDate}</p>
             </div>
             {!isEditing && !loading && (
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, marginRight: 46 }}>
                 <IconBtn onClick={handlePrint} aria-label="Print">
                   <Printer size={16} />
                 </IconBtn>
